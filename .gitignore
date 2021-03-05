@@ -1,6 +1,8 @@
 .idea
+.vscode
 .settings
 target
 classes
 coverage
 .project
+results

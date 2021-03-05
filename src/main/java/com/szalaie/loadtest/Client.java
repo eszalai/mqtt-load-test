@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
 import java.util.LinkedList;
-import java.util.OptionalDouble;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Client {
@@ -36,7 +35,7 @@ public class Client {
     public void setCallbacks() {
         this.client.setCallback(new MqttCallback() {
 
-            //Called when the client lost the connection to the broker
+            // Called when the client lost the connection to the broker
             @Override
             public void connectionLost(Throwable cause) {
                 System.out.println("Connection lost - clientId: " + clientId + " cause: " + cause);
@@ -47,10 +46,14 @@ public class Client {
                 payloads.put(ZonedDateTime.now().toInstant().toEpochMilli(), message.getPayload());
             }
 
-            // Called when delivery for a message has been completed, and all acknowledgments have been received.
-            // For QoS 0 messages it is called once the message has been handed to the network for delivery.
-            // For QoS 1 it is called when PUBACK is received and for QoS 2 when PUBCOMP is received.
-            // The token will be the same token as that returned when the message was published.
+            // Called when delivery for a message has been completed, and all
+            // acknowledgments have been received.
+            // For QoS 0 messages it is called once the message has been handed to the
+            // network for delivery.
+            // For QoS 1 it is called when PUBACK is received and for QoS 2 when PUBCOMP is
+            // received.
+            // The token will be the same token as that returned when the message was
+            // published.
             @Override
             public void deliveryComplete(IMqttDeliveryToken token) {
                 count.getAndIncrement();
@@ -59,10 +62,12 @@ public class Client {
     }
 
     public void connect() throws MqttException {
+        System.out.println("Connecting client: " + this.clientId);
         this.client.connect(this.options);
     }
 
     public void disconnect() throws MqttException {
+        System.out.println("Disconnecting client: " + this.clientId);
         this.client.disconnect();
     }
 
@@ -92,23 +97,22 @@ public class Client {
         return this.count.get();
     }
 
-    public long calculateLatency(long receivingTime, byte[] sendingTime) {
-        return receivingTime - Utils.bytesToLong(sendingTime);
-    }
+    public List<Long> getLatencies() {
+        List<Long> latencies = new LinkedList<>();
 
-    public void getResult() {
         if (payloads != null && !payloads.isEmpty()) {
-            List<Long> latencies = new LinkedList<>();
-
             for (long receivingTime : payloads.keySet()) {
-                long latency = calculateLatency(receivingTime, payloads.get(receivingTime));
+                long latency = Utils.calculateLatency(receivingTime, payloads.get(receivingTime));
                 latencies.add(latency);
             }
-
-            OptionalDouble averageLatency = latencies.stream().mapToDouble(a -> a).average();
-            System.out.println("average latency: " + averageLatency.toString());
         } else {
             System.out.println("Have not received any messages yet");
         }
+        return latencies;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Client: %S", this.clientId);
     }
 }
