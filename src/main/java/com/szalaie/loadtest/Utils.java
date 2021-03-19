@@ -6,8 +6,11 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.OptionalDouble;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class Utils {
 
@@ -38,33 +41,72 @@ public class Utils {
         return latencies.stream().mapToDouble(a -> a).average();
     }
 
-    public static void writeResultToFile(List<Long> latencies, int qos, int messagesNum, int sentMessagesNum,
-            Client client) throws IOException {
-        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyy-dd-MM_hh-mm-ss");
-        String resultFilePath = "results" + File.separator + dateTimeFormatter.format(ZonedDateTime.now()) + ".txt";
-        File file = new File(resultFilePath);
+    public static FileWriter createFileWriter(File file) throws IOException {
         FileWriter fileWriter;
-
         if (file.exists()) {
-            fileWriter = new FileWriter(resultFilePath, true);
+            fileWriter = new FileWriter(file, true);
         } else {
             file.getParentFile().mkdirs();
-            fileWriter = new FileWriter(resultFilePath);
+            fileWriter = new FileWriter(file);
         }
-        PrintWriter printWriter = new PrintWriter(fileWriter);
+
+        return fileWriter;
+    }
+
+    public static int sumSuccessfullySentMessagesNumber(List<Client> publisherClientList) {
+        int successfullySentMessagesNumber = 0;
+        for (Client client : publisherClientList) {
+            successfullySentMessagesNumber += client.getSuccessfullySentMessagesNumber();
+        }
+        return successfullySentMessagesNumber;
+    }
+
+    public static void writeResultToFile(List<Client> subscriberClientList, List<Client> publisherClientList, int qos,
+            int messageNumber) throws IOException {
+        List<Long> latencies = writeLatenciesToFile(subscriberClientList);
+
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyy-MM-dd_hh-mm-ss");
+        String resultFilePath = "results" + File.separator + "results" + dateTimeFormatter.format(ZonedDateTime.now())
+                + ".txt";
+        File resultFile = new File(resultFilePath);
+        FileWriter resultFileWriter = createFileWriter(resultFile);
+        PrintWriter printWriter = new PrintWriter(resultFileWriter);
+
         OptionalDouble averageLatency = calculateAverageLatency(latencies);
+        int successfullySentMessagesNumber = sumSuccessfullySentMessagesNumber(publisherClientList);
 
         printWriter.print("---- RESULT ----\n");
         printWriter.printf("Average latency %f \n", averageLatency.isEmpty() ? 0.0 : averageLatency.getAsDouble());
-        printWriter.printf("QoS: %d, messages: %d, sent messages: %d \n", qos, messagesNum, sentMessagesNum);
-        printWriter.printf("Successfully sent messages: %d, received messages: %d \n",
-                client.getSuccessfullySentMessagesNumber(), latencies.size());
-
-        printWriter.print("latency in ms:\n");
-        latencies.forEach((latency) -> {
-            printWriter.print(latency + ";\n");
-        });
-
+        printWriter.printf("QoS: %d, messages: %d \n", qos, messageNumber);
+        printWriter.printf("Successfully sent messages: %d, received messages: %d \n", successfullySentMessagesNumber,
+                latencies.size());
         printWriter.close();
+    }
+
+    public static List<Long> writeLatenciesToFile(List<Client> subscriberClientList) throws IOException {
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyy-MM-dd_hh-mm-ss");
+        String latenciesFilePath = "results" + File.separator + "latencies"
+                + dateTimeFormatter.format(ZonedDateTime.now()) + ".txt";
+        File latenciesFile = new File(latenciesFilePath);
+        FileWriter latenciesFileWriter = createFileWriter(latenciesFile);
+        PrintWriter latenciesPrintWriter = new PrintWriter(latenciesFileWriter);
+        int receivedMessagesNumber = 0;
+        List<Long> newList = new LinkedList<>();
+
+        latenciesPrintWriter.print("latency in ms:\n");
+        for (Client subscriber : subscriberClientList) {
+            List<Long> latencies = subscriber.getLatencies();
+            newList = Stream.concat(latencies.stream(), newList.stream()).collect(Collectors.toList());
+
+            receivedMessagesNumber += latencies.size();
+            latencies.forEach((latency) -> {
+                latenciesPrintWriter.print(latency + ";\n");
+            });
+        }
+
+        latenciesPrintWriter.printf("receivedMessagesNumber: %d\n", receivedMessagesNumber);
+
+        latenciesPrintWriter.close();
+        return newList;
     }
 }

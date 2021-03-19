@@ -1,7 +1,7 @@
 package com.szalaie.loadtest;
 
 import org.eclipse.paho.client.mqttv3.*;
-import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
 
 import java.time.ZonedDateTime;
 import java.util.Map;
@@ -11,16 +11,25 @@ import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Client {
+    static final String CONNECTION_LOST_MSG = "Connection lost - clientId: %s cause: %s%n";
+    static final String CONNECTING_MSG = "Connecting client: %s%n";
+    static final String DISCONNECTING_MSG = "Disconnecting client: %s%n";
+    static final String NO_MESSAGE_RECEIVED_MSG = "No message received%n";
+    static final String CLIENT = "Client: %S";
+    static final short MAX_INFLIGHT = 30000;
+
     MqttClient client;
     String clientId;
     MqttConnectOptions options;
     final AtomicInteger count;
     Map<Long, byte[]> payloads;
 
-    public Client(String broker, String clientId, String password, MemoryPersistence persistence) throws MqttException {
+    public Client(String broker, String clientId, String password) throws MqttException {
         this.clientId = clientId;
-        client = new MqttClient(broker, clientId, persistence);
+        client = new MqttClient(broker, clientId, new MqttDefaultFilePersistence("../tmp"));
+
         options = new MqttConnectOptions();
+        options.setMaxInflight(MAX_INFLIGHT);
 
         options.setCleanSession(true);
         options.setUserName(clientId);
@@ -38,7 +47,7 @@ public class Client {
             // Called when the client lost the connection to the broker
             @Override
             public void connectionLost(Throwable cause) {
-                System.out.println("Connection lost - clientId: " + clientId + " cause: " + cause);
+                System.out.printf(CONNECTION_LOST_MSG, clientId, cause);
             }
 
             @Override
@@ -62,12 +71,12 @@ public class Client {
     }
 
     public void connect() throws MqttException {
-        System.out.println("Connecting client: " + this.clientId);
+        System.out.printf(CONNECTING_MSG, this.clientId);
         this.client.connect(this.options);
     }
 
     public void disconnect() throws MqttException {
-        System.out.println("Disconnecting client: " + this.clientId);
+        System.out.printf(DISCONNECTING_MSG, this.clientId);
         this.client.disconnect();
     }
 
@@ -106,13 +115,13 @@ public class Client {
                 latencies.add(latency);
             }
         } else {
-            System.out.println("Have not received any messages yet");
+            System.out.printf(NO_MESSAGE_RECEIVED_MSG);
         }
         return latencies;
     }
 
     @Override
     public String toString() {
-        return String.format("Client: %S", this.clientId);
+        return String.format(CLIENT, this.clientId);
     }
 }

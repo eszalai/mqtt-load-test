@@ -1,82 +1,58 @@
 package com.szalaie.loadtest;
 
 import org.eclipse.paho.client.mqttv3.MqttException;
-import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 import java.io.IOException;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class App {
 
+    public static final String GETTING_RESULT_MSG = "Getting results%n";
+
     public static void main(String[] args) {
         String broker = "tcp://0.0.0.0:1883";
-        String clientId = "test01";
         String subscriberClientId = "test02";
+        String clientIdBase = "device";
         String password = "passw";
-        String topic = "/device/test_type/test01";
-        int messageNumber = 200;
-        int qos = 1;
-        int awaitTerminationInSecs = 60;
+        String topic = "/device/test_type";
+        int publisherClientNumber = 50;
+        String publisherClientPassword = "passw";
+        int delayBetweenMessagesInMillisec = 15;
+        int messageNumber = 30000;
+        int qos = 2;
+        int awaitTerminationInSecs = 240;
+        ExecutorServiceHandler executorServiceHandler;
 
         try {
-            final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(messageNumber);
-            final AtomicInteger count = new AtomicInteger(0);
-            MemoryPersistence persistence = new MemoryPersistence();
-            Client subscriber = new Client(broker, subscriberClientId, password, persistence);
-            Client publisher = new Client(broker, clientId, password, persistence);
+            final ExecutorService executorService = Executors.newScheduledThreadPool(messageNumber);
+            executorServiceHandler = new ExecutorServiceHandler(executorService);
 
-            publisher.connect();
-            subscriber.connect();
-            subscriber.subscribe(topic, qos);
+            List<Client> publisherClientList = ClientUtils.createClients(publisherClientNumber, broker, clientIdBase,
+                    publisherClientPassword);
+            Client subscriber = new Client(broker, subscriberClientId, password);
+            List<Client> subscriberClientList = new LinkedList<>();
 
-            final ScheduledFuture<?> publishHandler = executorService.scheduleAtFixedRate(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        count.getAndIncrement();
-                        publisher.publishWithTimePayload(topic, qos, false);
-                    } catch (MqttException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }, 0, 1, TimeUnit.MICROSECONDS);
+            subscriberClientList.add(subscriber);
 
-            while (true) {
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
+            ClientUtils.connect(subscriberClientList);
+            ClientUtils.connect(publisherClientList);
 
-                if (count.get() >= messageNumber) {
-                    System.out.println("Cancelling publishHandler");
-                    publishHandler.cancel(false);
+            ClientUtils.subscribe(subscriberClientList, topic, qos);
 
-                    System.out.printf("Waiting %d seconds to terminate\n", awaitTerminationInSecs);
-                    executorService.awaitTermination(awaitTerminationInSecs, TimeUnit.SECONDS);
+            List<Runnable> runnableList = ClientUtils.createRunnablesToPublishMessage(publisherClientList, topic, qos,
+                    messageNumber);
 
-                    System.out.println("Shutting down ScheduledExecutorService");
-                    executorService.shutdown();
-                    break;
-                }
-            }
+            executorServiceHandler.scheduleCommands(runnableList, delayBetweenMessagesInMillisec);
+            executorServiceHandler.shutdownExecutorService(awaitTerminationInSecs);
 
-            if (!executorService.awaitTermination(awaitTerminationInSecs, TimeUnit.SECONDS)) {
-                System.out.println("Shut down now ScheduledExecutorService");
-                executorService.shutdownNow();
-            }
+            ClientUtils.disconnect(subscriberClientList);
+            ClientUtils.disconnect(publisherClientList);
 
-            publisher.disconnect();
-            subscriber.disconnect();
-
-            System.out.println("Getting results");
-            List<Long> latencies = subscriber.getLatencies();
-            Utils.writeResultToFile(latencies, qos, messageNumber, count.get(), publisher);
+            System.out.printf(GETTING_RESULT_MSG);
+            Utils.writeResultToFile(subscriberClientList, publisherClientList, qos, messageNumber);
         } catch (MqttException | InterruptedException | IOException e) {
             e.printStackTrace();
         }
