@@ -17,16 +17,21 @@ public class Client {
     static final String DISCONNECTING_MSG = "Disconnecting client: %s%n";
     static final String NO_MESSAGE_RECEIVED_MSG = "No message received%n";
     static final String CLIENT = "Client: %S";
+    static final String DEFAULT_TOPIC_STR = "/device/%s/%s";
     static final short MAX_INFLIGHT = 30000;
 
     MqttClient client;
     String clientId;
+    String defaultTopic;
+    String clientType;
     MqttConnectOptions options;
     final AtomicInteger count;
     Map<Instant, byte[]> messageArrivalTimeAndPayloadMap;
 
-    public Client(String broker, String clientId, String password) throws MqttException {
+    public Client(String broker, String clientId, String password, String clientType) throws MqttException {
         this.clientId = clientId;
+        this.clientType = clientType;
+        this.defaultTopic = String.format(DEFAULT_TOPIC_STR, this.clientType, this.clientId);
         client = new MqttClient(broker, clientId, new MqttDefaultFilePersistence("../tmp"));
 
         options = new MqttConnectOptions();
@@ -44,6 +49,10 @@ public class Client {
 
     public String getClientId() {
         return this.clientId;
+    }
+
+    public String getDefaultTopic() {
+        return this.defaultTopic;
     }
 
     public Map<Instant, byte[]> getMessageArrivalTimeAndPayloadMap() {

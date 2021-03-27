@@ -23,12 +23,13 @@ public class Utils {
     final static String PUBLISHER_NUMBER_STR = "Number of publishers: %d\n";
     final static String SUBSCRIBER_NUMBER_STR = "Number of subscribers: %d\n";
     final static String MESSAGE_NUMBER_STR = "Number of messages: %d \n";
+    final static String SENT_MESSAGE_NUMBER_STR = "Number of sent messages: %d \n";
     final static String SUCCESSFULLY_SENT_MESSAGE_NUMBER_STR = "Number of successfully sent messages: %d\n";
     final static String RECEIVED_MESSAGE_NUMBER_STR = "Number of received messages: %d \n";
-    final static String RECEIVED_MESSAGE_PER_SUBSCRIBER_NUMBER_STR = "Number of received messages per subscriber: %f \n";
-    final static String LATENCIES_HEADER_STR = "sendingTime;arrivalTime;latencyInNanosec\n";
-    final static String LATENCIES_LINE_FORMAT = "%S;%S;%d\n";
-    final static String DATE_TIME_FORMAT = "yyy-MM-dd_hh-mm-ss";
+    final static String RECEIVED_MESSAGE_PER_SUBSCRIBER_NUMBER_STR = "Number of received messages per subscriber: %d.%d \n";
+    final static String LATENCIES_HEADER_STR = "sendingTime,arrivalTime,latencyInNanosec\n";
+    final static String LATENCIES_LINE_FORMAT = "%S,%S,%d\n";
+    final static String DATE_TIME_FORMAT = "yyy-MM-dd_HH-mm-ss";
 
     public static long calculateLatency(Instant receivingTime, String sendingTime) {
         Instant sendingTimeInstant = Instant.parse(sendingTime);
@@ -74,7 +75,7 @@ public class Utils {
     }
 
     public static void writeResultToFile(List<Client> subscriberClientList, List<Client> publisherClientList, int qos,
-            int messageNumber) throws IOException {
+            int messageNumber, int numberOfSentMessages) throws IOException {
         int numberOfSubscribers = subscriberClientList.size();
         int numberOfPublishers = publisherClientList.size();
 
@@ -88,16 +89,21 @@ public class Utils {
         List<Long> latencies = aggregateLatencies(subscriberClientList);
         OptionalDouble averageLatency = calculateAverageLatency(latencies);
         int successfullySentMessagesNumber = sumSuccessfullySentMessagesNumber(publisherClientList);
-        Double receivedMessagesPerSubscriber = (double) (latencies.size() / numberOfSubscribers);
+        int receivedMessagesPerSubscriberQuotient = numberOfSubscribers != 0 ? latencies.size() / numberOfSubscribers
+                : 0;
+        int receivedMessagesPerSubscriberRemainder = numberOfSubscribers != 0 ? latencies.size() % numberOfSubscribers
+                : 0;
 
         printWriter.printf(AVERAGE_LATENCY_STR, averageLatency.isEmpty() ? 0.0 : averageLatency.getAsDouble());
         printWriter.printf(QOS_STR, qos);
         printWriter.printf(PUBLISHER_NUMBER_STR, numberOfPublishers);
         printWriter.printf(SUBSCRIBER_NUMBER_STR, numberOfSubscribers);
         printWriter.printf(MESSAGE_NUMBER_STR, messageNumber);
+        printWriter.printf(SENT_MESSAGE_NUMBER_STR, numberOfSentMessages);
         printWriter.printf(SUCCESSFULLY_SENT_MESSAGE_NUMBER_STR, successfullySentMessagesNumber);
         printWriter.printf(RECEIVED_MESSAGE_NUMBER_STR, latencies.size());
-        printWriter.printf(RECEIVED_MESSAGE_PER_SUBSCRIBER_NUMBER_STR, receivedMessagesPerSubscriber);
+        printWriter.printf(RECEIVED_MESSAGE_PER_SUBSCRIBER_NUMBER_STR, receivedMessagesPerSubscriberQuotient,
+                receivedMessagesPerSubscriberRemainder);
         printWriter.close();
     }
 

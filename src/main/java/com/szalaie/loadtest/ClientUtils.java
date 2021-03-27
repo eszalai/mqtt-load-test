@@ -9,13 +9,15 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 
 public class ClientUtils {
 
-    static List<Client> createClients(int clientNumber, String broker, String clientIdBase, int firstClientIdNumber,
-            String clientPassword) throws MqttException {
+    final static String EMPTY_STR = "";
+
+    static List<Client> createClients(int clientNumber, String broker, String clientIdBase, String type,
+            int firstClientIdNumber, String clientPassword) throws MqttException {
         List<Client> clientList = new LinkedList<>();
 
         for (int i = firstClientIdNumber; i < firstClientIdNumber + clientNumber; i++) {
             String clientId = clientIdBase + i;
-            Client client = new Client(broker, clientId, clientPassword);
+            Client client = new Client(broker, clientId, clientPassword, type);
             clientList.add(client);
         }
 
@@ -29,7 +31,8 @@ public class ClientUtils {
         Iterator<Client> clientListIterator = clientList.iterator();
         while (clientListIterator.hasNext()) {
             Client client = clientListIterator.next();
-            runnableList.add(new PublishMessageThread(client, topic, qos));
+            String topicToPublish = topic == EMPTY_STR ? client.getDefaultTopic() : topic;
+            runnableList.add(new PublishMessageThread(client, topicToPublish, qos));
             messageCounter++;
 
             if (messageCounter >= messageNumber)

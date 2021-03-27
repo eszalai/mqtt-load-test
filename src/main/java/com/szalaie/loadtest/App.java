@@ -15,34 +15,40 @@ public class App {
     public static void main(String[] args) {
         String broker = "tcp://0.0.0.0:1883";
         String clientIdBase = "device";
+        String type = "test_type";
         String topic = "/device/test_type";
         int publisherClientNumber = 50;
         int subscriberClientNumber = 50;
         String publisherClientPassword = "passw";
         int delayBetweenMessagesInMillisec = 15;
-        int messageNumber = 30000;
+        int messageNumber = 300;
         int qos = 2;
-        int awaitTerminationInSecs = 240;
+        int awaitTerminationInSecs = 20;
         ExecutorServiceHandler executorServiceHandler;
 
         try {
             final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(messageNumber);
             executorServiceHandler = new ExecutorServiceHandler(executorService);
 
-            List<Client> publisherClientList = ClientUtils.createClients(publisherClientNumber, broker, clientIdBase, 1,
-                    publisherClientPassword);
+            List<Client> publisherClientList = ClientUtils.createClients(publisherClientNumber, broker, clientIdBase,
+                    type, 1, publisherClientPassword);
             List<Client> subscriberClientList = ClientUtils.createClients(subscriberClientNumber, broker, clientIdBase,
-                    51, publisherClientPassword);
+                    type, 51, publisherClientPassword);
 
             ClientUtils.connect(subscriberClientList);
             ClientUtils.connect(publisherClientList);
 
             ClientUtils.subscribe(subscriberClientList, topic, qos);
 
-            List<Runnable> runnableList = ClientUtils.createRunnablesToPublishMessage(publisherClientList, topic, qos,
-                    messageNumber);
+            // List<Runnable> runnableList =
+            // ClientUtils.createRunnablesToPublishMessage(publisherClientList, topic, qos,
+            // messageNumber);
+            // executorServiceHandler.scheduleCommands(runnableList,
+            // delayBetweenMessagesInMillisec);
 
-            executorServiceHandler.scheduleCommands(runnableList, delayBetweenMessagesInMillisec);
+            executorServiceHandler.scheduleAtFixedRate(publisherClientList, messageNumber, qos, topic,
+                    delayBetweenMessagesInMillisec, awaitTerminationInSecs);
+
             executorServiceHandler.shutdownExecutorService(awaitTerminationInSecs);
 
             ClientUtils.disconnect(subscriberClientList);
@@ -50,7 +56,8 @@ public class App {
 
             System.out.printf(GETTING_RESULT_MSG);
             Utils.writeLatenciesToFile(subscriberClientList);
-            Utils.writeResultToFile(subscriberClientList, publisherClientList, qos, messageNumber);
+            Utils.writeResultToFile(subscriberClientList, publisherClientList, qos, messageNumber,
+                    executorServiceHandler.getNumberOfSentMessages());
             System.out.printf(END_OF_TESTING_MSG);
         } catch (MqttException | InterruptedException | IOException e) {
             e.printStackTrace();
