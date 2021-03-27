@@ -4,37 +4,49 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalDouble;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class Utils {
 
-    // https://stackoverflow.com/questions/4485128/how-do-i-convert-long-to-byte-and-back-in-java
-    public static byte[] longToBytes(long l) {
-        byte[] result = new byte[Long.BYTES];
-        for (int i = Long.BYTES - 1; i >= 0; i--) {
-            result[i] = (byte) (l & 0xFF);
-            l >>= Byte.SIZE;
-        }
-        return result;
+    final static String LATENCIES_FILE_PATH = "results%Slatencies%S%S-%S.csv";
+    final static String RESULTS_FILE_PATH = "results%Sresults%S%S.txt";
+    final static String AVERAGE_LATENCY_STR = "Average latency in nanoseconds: %f \n";
+    final static String QOS_STR = "QoS: %d\n";
+    final static String PUBLISHER_NUMBER_STR = "Number of publishers: %d\n";
+    final static String SUBSCRIBER_NUMBER_STR = "Number of subscribers: %d\n";
+    final static String MESSAGE_NUMBER_STR = "Number of messages: %d \n";
+    final static String SUCCESSFULLY_SENT_MESSAGE_NUMBER_STR = "Number of successfully sent messages: %d\n";
+    final static String RECEIVED_MESSAGE_NUMBER_STR = "Number of received messages: %d \n";
+    final static String RECEIVED_MESSAGE_PER_SUBSCRIBER_NUMBER_STR = "Number of received messages per subscriber: %f \n";
+    final static String LATENCIES_HEADER_STR = "sendingTime;arrivalTime;latencyInNanosec\n";
+    final static String LATENCIES_LINE_FORMAT = "%S;%S;%d\n";
+    final static String DATE_TIME_FORMAT = "yyy-MM-dd_hh-mm-ss";
+
+    public static long calculateLatency(Instant receivingTime, String sendingTime) {
+        Instant sendingTimeInstant = Instant.parse(sendingTime);
+        Duration timeElapsed = Duration.between(sendingTimeInstant, receivingTime);
+        return timeElapsed.toNanos();
     }
 
-    public static long bytesToLong(final byte[] b) {
-        long result = 0;
-        for (int i = 0; i < Long.BYTES; i++) {
-            result <<= Byte.SIZE;
-            result |= (b[i] & 0xFF);
-        }
-        return result;
+    public static long calculateLatency(Instant receivingTime, byte[] sendingTime) {
+        String messageSendingTime = new String(sendingTime, StandardCharsets.UTF_8);
+        return calculateLatency(receivingTime, messageSendingTime);
     }
 
-    public static long calculateLatency(long receivingTime, byte[] sendingTime) {
-        return receivingTime - bytesToLong(sendingTime);
+    public static List<Long> aggregateLatencies(List<Client> subsciberClientList) {
+        List<Long> latencies = new ArrayList<>();
+        subsciberClientList.forEach((subscriber) -> {
+            latencies.addAll(subscriber.getLatencies());
+        });
+        return latencies;
     }
 
     public static OptionalDouble calculateAverageLatency(List<Long> latencies) {
@@ -63,50 +75,54 @@ public class Utils {
 
     public static void writeResultToFile(List<Client> subscriberClientList, List<Client> publisherClientList, int qos,
             int messageNumber) throws IOException {
-        List<Long> latencies = writeLatenciesToFile(subscriberClientList);
+        int numberOfSubscribers = subscriberClientList.size();
+        int numberOfPublishers = publisherClientList.size();
 
-        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyy-MM-dd_hh-mm-ss");
-        String resultFilePath = "results" + File.separator + "results" + dateTimeFormatter.format(ZonedDateTime.now())
-                + ".txt";
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(DATE_TIME_FORMAT);
+        String resultFilePath = String.format(RESULTS_FILE_PATH, File.separator, File.separator,
+                dateTimeFormatter.format(ZonedDateTime.now()));
         File resultFile = new File(resultFilePath);
         FileWriter resultFileWriter = createFileWriter(resultFile);
         PrintWriter printWriter = new PrintWriter(resultFileWriter);
 
+        List<Long> latencies = aggregateLatencies(subscriberClientList);
         OptionalDouble averageLatency = calculateAverageLatency(latencies);
         int successfullySentMessagesNumber = sumSuccessfullySentMessagesNumber(publisherClientList);
+        Double receivedMessagesPerSubscriber = (double) (latencies.size() / numberOfSubscribers);
 
-        printWriter.print("---- RESULT ----\n");
-        printWriter.printf("Average latency %f \n", averageLatency.isEmpty() ? 0.0 : averageLatency.getAsDouble());
-        printWriter.printf("QoS: %d, messages: %d \n", qos, messageNumber);
-        printWriter.printf("Successfully sent messages: %d, received messages: %d \n", successfullySentMessagesNumber,
-                latencies.size());
+        printWriter.printf(AVERAGE_LATENCY_STR, averageLatency.isEmpty() ? 0.0 : averageLatency.getAsDouble());
+        printWriter.printf(QOS_STR, qos);
+        printWriter.printf(PUBLISHER_NUMBER_STR, numberOfPublishers);
+        printWriter.printf(SUBSCRIBER_NUMBER_STR, numberOfSubscribers);
+        printWriter.printf(MESSAGE_NUMBER_STR, messageNumber);
+        printWriter.printf(SUCCESSFULLY_SENT_MESSAGE_NUMBER_STR, successfullySentMessagesNumber);
+        printWriter.printf(RECEIVED_MESSAGE_NUMBER_STR, latencies.size());
+        printWriter.printf(RECEIVED_MESSAGE_PER_SUBSCRIBER_NUMBER_STR, receivedMessagesPerSubscriber);
         printWriter.close();
     }
 
-    public static List<Long> writeLatenciesToFile(List<Client> subscriberClientList) throws IOException {
-        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyy-MM-dd_hh-mm-ss");
-        String latenciesFilePath = "results" + File.separator + "latencies"
-                + dateTimeFormatter.format(ZonedDateTime.now()) + ".txt";
-        File latenciesFile = new File(latenciesFilePath);
-        FileWriter latenciesFileWriter = createFileWriter(latenciesFile);
-        PrintWriter latenciesPrintWriter = new PrintWriter(latenciesFileWriter);
-        int receivedMessagesNumber = 0;
-        List<Long> newList = new LinkedList<>();
+    public static void writeLatenciesToFile(List<Client> subscriberClientList) throws IOException {
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(DATE_TIME_FORMAT);
 
-        latenciesPrintWriter.print("latency in ms:\n");
         for (Client subscriber : subscriberClientList) {
-            List<Long> latencies = subscriber.getLatencies();
-            newList = Stream.concat(latencies.stream(), newList.stream()).collect(Collectors.toList());
+            String latenciesFilePath = String.format(LATENCIES_FILE_PATH, File.separator, File.separator,
+                    subscriber.getClientId(), dateTimeFormatter.format(ZonedDateTime.now()));
+            File latenciesFile = new File(latenciesFilePath);
+            FileWriter latenciesFileWriter = createFileWriter(latenciesFile);
+            PrintWriter latenciesPrintWriter = new PrintWriter(latenciesFileWriter);
+            latenciesPrintWriter.print(LATENCIES_HEADER_STR);
 
-            receivedMessagesNumber += latencies.size();
-            latencies.forEach((latency) -> {
-                latenciesPrintWriter.print(latency + ";\n");
-            });
+            Map<Instant, byte[]> messageArrivalTimeAndPayloadMap = subscriber.getMessageArrivalTimeAndPayloadMap();
+
+            for (Instant messageArrivalTime : messageArrivalTimeAndPayloadMap.keySet()) {
+                String messageSendingTime = new String(messageArrivalTimeAndPayloadMap.get(messageArrivalTime),
+                        StandardCharsets.UTF_8);
+                long latency = Utils.calculateLatency(messageArrivalTime, messageSendingTime);
+                latenciesPrintWriter.printf(LATENCIES_LINE_FORMAT, messageSendingTime, messageArrivalTime.toString(),
+                        latency);
+            }
+
+            latenciesPrintWriter.close();
         }
-
-        latenciesPrintWriter.printf("receivedMessagesNumber: %d\n", receivedMessagesNumber);
-
-        latenciesPrintWriter.close();
-        return newList;
     }
 }

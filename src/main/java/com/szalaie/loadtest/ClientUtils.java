@@ -9,11 +9,11 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 
 public class ClientUtils {
 
-    static List<Client> createClients(int clientNumber, String broker, String clientIdBase, String clientPassword)
-            throws MqttException {
+    static List<Client> createClients(int clientNumber, String broker, String clientIdBase, int firstClientIdNumber,
+            String clientPassword) throws MqttException {
         List<Client> clientList = new LinkedList<>();
 
-        for (int i = 1; i <= clientNumber; i++) {
+        for (int i = firstClientIdNumber; i < firstClientIdNumber + clientNumber; i++) {
             String clientId = clientIdBase + i;
             Client client = new Client(broker, clientId, clientPassword);
             clientList.add(client);

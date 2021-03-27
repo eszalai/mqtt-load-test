@@ -3,7 +3,8 @@ package com.szalaie.loadtest;
 import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
 
-import java.time.ZonedDateTime;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
@@ -22,7 +23,7 @@ public class Client {
     String clientId;
     MqttConnectOptions options;
     final AtomicInteger count;
-    Map<Long, byte[]> payloads;
+    Map<Instant, byte[]> messageArrivalTimeAndPayloadMap;
 
     public Client(String broker, String clientId, String password) throws MqttException {
         this.clientId = clientId;
@@ -36,9 +37,17 @@ public class Client {
         options.setPassword(password.toCharArray());
 
         count = new AtomicInteger(0);
-        payloads = new HashMap<>();
+        messageArrivalTimeAndPayloadMap = new HashMap<>();
 
         setCallbacks();
+    }
+
+    public String getClientId() {
+        return this.clientId;
+    }
+
+    public Map<Instant, byte[]> getMessageArrivalTimeAndPayloadMap() {
+        return this.messageArrivalTimeAndPayloadMap;
     }
 
     public void setCallbacks() {
@@ -52,7 +61,7 @@ public class Client {
 
             @Override
             public void messageArrived(String topic, MqttMessage message) {
-                payloads.put(ZonedDateTime.now().toInstant().toEpochMilli(), message.getPayload());
+                messageArrivalTimeAndPayloadMap.put(Instant.now(), message.getPayload());
             }
 
             // Called when delivery for a message has been completed, and all
@@ -93,8 +102,8 @@ public class Client {
     }
 
     public void publishWithTimePayload(String topic, int qos, boolean retained) throws MqttException {
-        long timeMilli = ZonedDateTime.now().toInstant().toEpochMilli();
-        byte[] payload = Utils.longToBytes(timeMilli);
+        Instant timeInstant = Instant.now();
+        byte[] payload = timeInstant.toString().getBytes(StandardCharsets.UTF_8);
         this.client.publish(topic, payload, qos, retained);
     }
 
@@ -109,9 +118,10 @@ public class Client {
     public List<Long> getLatencies() {
         List<Long> latencies = new LinkedList<>();
 
-        if (payloads != null && !payloads.isEmpty()) {
-            for (long receivingTime : payloads.keySet()) {
-                long latency = Utils.calculateLatency(receivingTime, payloads.get(receivingTime));
+        if (messageArrivalTimeAndPayloadMap != null && !messageArrivalTimeAndPayloadMap.isEmpty()) {
+            for (Instant messageArrivalTime : messageArrivalTimeAndPayloadMap.keySet()) {
+                byte[] messageSendingTime = messageArrivalTimeAndPayloadMap.get(messageArrivalTime);
+                long latency = Utils.calculateLatency(messageArrivalTime, messageSendingTime);
                 latencies.add(latency);
             }
         } else {
