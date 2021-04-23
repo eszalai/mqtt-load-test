@@ -1,65 +1,31 @@
 package com.szalaie.loadtest;
 
-import org.eclipse.paho.client.mqttv3.MqttException;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public class App {
 
-    public static final String GETTING_RESULT_MSG = "Getting results%n";
-    public static final String END_OF_TESTING_MSG = "End of testing%n";
-
     public static void main(String[] args) {
-        String broker = "tcp://0.0.0.0:1883";
+        String broker = "tcp://localhost:1883";
         String clientIdBase = "device";
-        String type = "test_type";
+        String clientType = "test_type";
         String topic = "/device/test_type";
-        int publisherClientNumber = 50;
-        int subscriberClientNumber = 50;
-        String publisherClientPassword = "passw";
-        int delayBetweenMessagesInMillisec = 15;
-        int messageNumber = 300;
-        int qos = 2;
+        int publisherClientNumber = 1;
+        int subscriberClientNumber = 800;
+        String clientPassword = "password";
+        int delayBetweenMessagesInMillisec = 500;
+        int messageNumber = 1000;
+        int qos = 1;
         int awaitTerminationInSecs = 20;
-        ExecutorServiceHandler executorServiceHandler;
+        int firstClientIdNumber = 1;
 
         try {
-            final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(messageNumber);
-            executorServiceHandler = new ExecutorServiceHandler(executorService);
+            final ScheduledThreadPoolExecutor executorService = new ScheduledThreadPoolExecutor(messageNumber);
+            LoadTester loadTester = new LoadTester(executorService);
 
-            List<Client> publisherClientList = ClientUtils.createClients(publisherClientNumber, broker, clientIdBase,
-                    type, 1, publisherClientPassword);
-            List<Client> subscriberClientList = ClientUtils.createClients(subscriberClientNumber, broker, clientIdBase,
-                    type, 51, publisherClientPassword);
-
-            ClientUtils.connect(subscriberClientList);
-            ClientUtils.connect(publisherClientList);
-
-            ClientUtils.subscribe(subscriberClientList, topic, qos);
-
-            // List<Runnable> runnableList =
-            // ClientUtils.createRunnablesToPublishMessage(publisherClientList, topic, qos,
-            // messageNumber);
-            // executorServiceHandler.scheduleCommands(runnableList,
-            // delayBetweenMessagesInMillisec);
-
-            executorServiceHandler.scheduleAtFixedRate(publisherClientList, messageNumber, qos, topic,
+            loadTester.publishMessagesAsynchWithRate(broker, clientIdBase, firstClientIdNumber, clientType,
+                    clientPassword, publisherClientNumber, subscriberClientNumber, messageNumber, topic, qos,
                     delayBetweenMessagesInMillisec, awaitTerminationInSecs);
-
-            executorServiceHandler.shutdownExecutorService(awaitTerminationInSecs);
-
-            ClientUtils.disconnect(subscriberClientList);
-            ClientUtils.disconnect(publisherClientList);
-
-            System.out.printf(GETTING_RESULT_MSG);
-            Utils.writeLatenciesToFile(subscriberClientList);
-            Utils.writeResultToFile(subscriberClientList, publisherClientList, qos, messageNumber,
-                    executorServiceHandler.getNumberOfSentMessages());
-            System.out.printf(END_OF_TESTING_MSG);
-        } catch (MqttException | InterruptedException | IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }

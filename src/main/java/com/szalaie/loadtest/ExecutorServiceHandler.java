@@ -1,5 +1,6 @@
 package com.szalaie.loadtest;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -9,10 +10,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class ExecutorServiceHandler {
 
-    final static String SHUT_DOWN_EXECUTOR_SERVICE_MSG = "Shutting down ExecutorService";
-    final static String SHUT_DOWN_NOW_EXECUTOR_SERVICE_MSG = "Shut down now ExecutorService";
+    final static String SHUT_DOWN_EXECUTOR_SERVICE_MSG = "Shutting down ExecutorService %s%n";
+    final static String SHUT_DOWN_NOW_EXECUTOR_SERVICE_MSG = "Shut down now ExecutorService %s%n";
     final static String WAITING_TO_TERMINATE_EXECUTOR_SERVICE_MSG = "Waiting %d seconds to terminate\n";
-    final static String CANCELLING_PUBLISH_HANDLER_MSG = "Cancelling publishHandler";
+    final static String CANCELLING_SCHEDULER_MSG = "Cancelling scheduler";
     private ExecutorService executorService;
     private AtomicInteger messageCounter;
     private AtomicInteger clientIterator;
@@ -35,10 +36,10 @@ public class ExecutorServiceHandler {
         }
     }
 
-    void scheduleAtFixedRate(List<Client> publisherList, int messageNumber, int qos, String topic,
-            int delayBetweenMessagesInMillisec, int awaitTerminationInSecs) {
-        long period = delayBetweenMessagesInMillisec;
-        long initDelay = 0;
+    <T> ScheduledFuture<?> scheduleAtFixedRate(List<T> publisherClientList, List<T> subscriberClientList,
+            int messageNumber, int qos, String topic, int initDelayInMillis, int delayBetweenMessagesInMillis,
+            int awaitTerminationInSecs) {
+        long period = delayBetweenMessagesInMillis;
         clientIterator = new AtomicInteger(0);
         ScheduledFuture<?> publishHandler = ((ScheduledExecutorService) this.executorService)
                 .scheduleAtFixedRate(new Runnable() {
@@ -47,43 +48,56 @@ public class ExecutorServiceHandler {
                         try {
                             if (messageCounter.get() < messageNumber) {
                                 int clientNumber = 0;
-                                if (clientIterator.get() < publisherList.size()) {
+                                if (clientIterator.get() < publisherClientList.size()) {
                                     clientNumber = clientIterator.getAndIncrement();
                                 } else {
                                     clientIterator = new AtomicInteger(0);
                                 }
-                                Client publisher = publisherList.get(clientNumber);
+                                T publisher = publisherClientList.get(clientNumber);
 
-                                messageCounter.incrementAndGet();
-                                publisher.publishWithTimePayload(topic, qos, false);
-                            } else {
-                                shutdownExecutorService(awaitTerminationInSecs);
+                                if (messageCounter.get() < messageNumber) {
+                                    if (publisher instanceof Client) {
+                                        ((Client) publisher).publishWithTimePayload(topic, qos, false);
+                                    } else if (publisher instanceof AsyncClient) {
+                                        ((AsyncClient) publisher).publishWithTimePayload(topic, qos, false);
+                                    }
+                                    messageCounter.incrementAndGet();
+                                }
                             }
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
                     }
-                }, initDelay, period, TimeUnit.MILLISECONDS);
+                }, initDelayInMillis, period, TimeUnit.MILLISECONDS);
 
+        return publishHandler;
+    }
+
+    void waitThenCancelSchedulers(ScheduledFuture<?>[] schedulers, int messageNumber) {
         while (true) {
             if (messageCounter.get() >= messageNumber) {
-                System.out.println(CANCELLING_PUBLISH_HANDLER_MSG);
-                publishHandler.cancel(false);
+                System.out.println(CANCELLING_SCHEDULER_MSG);
+                for (ScheduledFuture<?> scheduler : schedulers) {
+                    scheduler.cancel(false);
+                }
                 break;
             }
         }
     }
 
-    void shutdownExecutorService(int awaitTerminationInSecs) throws InterruptedException {
+    Instant shutdownExecutorService(int awaitTerminationInSecs) throws InterruptedException {
         System.out.printf(WAITING_TO_TERMINATE_EXECUTOR_SERVICE_MSG, awaitTerminationInSecs);
         executorService.awaitTermination(awaitTerminationInSecs, TimeUnit.SECONDS);
 
-        System.out.println(SHUT_DOWN_EXECUTOR_SERVICE_MSG);
+        Instant shutDownDateTime = Instant.now();
+        System.out.printf(SHUT_DOWN_EXECUTOR_SERVICE_MSG, shutDownDateTime.toString());
         executorService.shutdown();
 
         if (!executorService.awaitTermination(awaitTerminationInSecs, TimeUnit.SECONDS)) {
-            System.out.println(SHUT_DOWN_NOW_EXECUTOR_SERVICE_MSG);
+            shutDownDateTime = Instant.now();
+            System.out.printf(SHUT_DOWN_NOW_EXECUTOR_SERVICE_MSG, shutDownDateTime.toString());
             executorService.shutdownNow();
         }
+        return shutDownDateTime;
     }
 }

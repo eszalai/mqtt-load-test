@@ -24,15 +24,34 @@ public class ClientUtils {
         return clientList;
     }
 
-    static List<Runnable> createRunnablesToPublishMessage(List<Client> clientList, String topic, int qos,
+    static List<AsyncClient> createAsyncClients(int clientNumber, String broker, String clientIdBase, String type,
+            int firstClientIdNumber, String clientPassword) throws MqttException {
+        List<AsyncClient> clientList = new LinkedList<>();
+
+        for (int i = firstClientIdNumber; i < firstClientIdNumber + clientNumber; i++) {
+            String clientId = clientIdBase + i;
+            AsyncClient client = new AsyncClient(broker, clientId, clientPassword, type);
+            clientList.add(client);
+        }
+
+        return clientList;
+    }
+
+    static <T> List<Runnable> createRunnablesToPublishMessage(List<T> clientList, String topic, int qos,
             int messageNumber) {
         int messageCounter = 0;
         List<Runnable> runnableList = new ArrayList<>();
-        Iterator<Client> clientListIterator = clientList.iterator();
+        Iterator<T> clientListIterator = clientList.iterator();
         while (clientListIterator.hasNext()) {
-            Client client = clientListIterator.next();
-            String topicToPublish = topic == EMPTY_STR ? client.getDefaultTopic() : topic;
-            runnableList.add(new PublishMessageThread(client, topicToPublish, qos));
+            T client = clientListIterator.next();
+            String defaultTopic = EMPTY_STR;
+            if (client instanceof Client) {
+                defaultTopic = ((Client) client).getDefaultTopic();
+            } else if (client instanceof AsyncClient) {
+                defaultTopic = ((AsyncClient) client).getDefaultTopic();
+            }
+            String topicToPublish = topic == EMPTY_STR ? defaultTopic : topic;
+            runnableList.add(new PublishMessageThread<T>(client, topicToPublish, qos));
             messageCounter++;
 
             if (messageCounter >= messageNumber)
@@ -44,21 +63,43 @@ public class ClientUtils {
         return runnableList;
     }
 
-    static void connect(List<Client> clientList) throws MqttException {
-        for (Client client : clientList) {
-            client.connect();
+    static <T> void connect(List<T> clientList) throws MqttException {
+        for (T client : clientList) {
+            if (client instanceof Client) {
+                ((Client) client).connect();
+            } else if (client instanceof AsyncClient) {
+                ((AsyncClient) client).connect().waitForCompletion();
+            }
         }
     }
 
-    static void disconnect(List<Client> clientList) throws MqttException {
-        for (Client client : clientList) {
-            client.disconnect();
+    static <T> void disconnect(List<T> clientList) {
+        for (T client : clientList) {
+            try {
+                if (client instanceof Client) {
+                    ((Client) client).disconnect();
+                } else if (client instanceof AsyncClient) {
+                    ((AsyncClient) client).disconnect();
+                }
+            } catch (MqttException e) {
+                System.out.println(e.getCause() + " " + e.toString());
+            }
         }
     }
 
-    static void subscribe(List<Client> clientList, String topic, int qos) throws MqttException {
-        for (Client client : clientList) {
-            client.subscribe(topic, qos);
+    static void waitForCompletion(List<AsyncClient> clientList) throws MqttException {
+        for (AsyncClient client : clientList) {
+            client.waitForCompletion();
+        }
+    }
+
+    static <T> void subscribe(List<T> clientList, String topic, int qos) throws MqttException {
+        for (T client : clientList) {
+            if (client instanceof Client) {
+                ((Client) client).subscribe(topic, qos);
+            } else if (client instanceof AsyncClient) {
+                ((AsyncClient) client).subscribe(topic, qos).waitForCompletion();
+            }
         }
     }
 }

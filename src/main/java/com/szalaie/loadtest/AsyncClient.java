@@ -10,14 +10,15 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+import org.eclipse.paho.client.mqttv3.IMqttToken;
+import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
-import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
-import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
 
-public class Client {
+public class AsyncClient {
 
     static final String CONNECTION_LOST_MSG = "Connection lost - clientId: %s cause: %s%n";
     static final String CONNECT_CLIENT_MSG = "Connect client: %s%n";
@@ -29,32 +30,33 @@ public class Client {
     static final String DEFAULT_TOPIC_STR = "/device/%s/%s";
     static final int MAX_INFLIGHT = 60000;
 
-    MqttClient client;
+    MqttAsyncClient client;
+    IMqttToken connectionToken;
     String clientId;
     String defaultTopic;
     String clientType;
     MqttConnectOptions options;
-    final AtomicInteger messageCounter;
     final AtomicInteger numberOfSuccessfullyDeliveredMessages;
     Map<Integer, Instant> sendingMessageTimeByMessageId;
     Map<Integer, Instant> deliveryCompleteTimeByMessageId;
 
-    public Client(String broker, String clientId, String password, String clientType) throws MqttException {
+    public AsyncClient(String broker, String clientId, String password, String clientType) throws MqttException {
         this.clientId = clientId;
         this.clientType = clientType;
         this.defaultTopic = String.format(DEFAULT_TOPIC_STR, this.clientType, this.clientId);
-        client = new MqttClient(broker, clientId, new MemoryPersistence());
+        client = new MqttAsyncClient(broker, clientId, new MqttDefaultFilePersistence("../tmp"));
 
         options = new MqttConnectOptions();
         options.setMqttVersion(MqttConnectOptions.MQTT_VERSION_3_1_1);
         options.setMaxInflight(MAX_INFLIGHT);
+        options.setConnectionTimeout(0);
+        options.setAutomaticReconnect(true);
 
         options.setCleanSession(true);
         options.setUserName(clientId);
         options.setPassword(password.toCharArray());
 
         numberOfSuccessfullyDeliveredMessages = new AtomicInteger(0);
-        messageCounter = new AtomicInteger(0);
         sendingMessageTimeByMessageId = new HashMap<>();
         deliveryCompleteTimeByMessageId = new HashMap<>();
 
@@ -63,10 +65,6 @@ public class Client {
 
     public String getClientId() {
         return this.clientId;
-    }
-
-    public String getDefaultTopic() {
-        return this.defaultTopic;
     }
 
     public Map<Integer, Instant> getDeliveryCompleteTimeByMessageId() {
@@ -103,44 +101,56 @@ public class Client {
                 if (token.getException() != null) {
                     System.out.printf(ERROR_IN_DELIVERY_MSG, token.getException().getStackTrace().toString());
                 } else {
-                    numberOfSuccessfullyDeliveredMessages.getAndIncrement();
+                    numberOfSuccessfullyDeliveredMessages.incrementAndGet();
                     deliveryCompleteTimeByMessageId.put(token.getMessageId(), Instant.now());
                 }
             }
         });
     }
 
-    public void connect() throws MqttException {
+    public IMqttToken connect() throws MqttException {
         System.out.printf(CONNECT_CLIENT_MSG, this.clientId);
-        this.client.connect(this.options);
+        this.connectionToken = this.client.connect(this.options);
+        return this.connectionToken;
     }
 
-    public void disconnect() throws MqttException {
+    public IMqttToken disconnect() throws MqttException {
         System.out.printf(DISCONNECT_CLIENT_MSG, this.clientId);
-        this.client.disconnect();
+        this.connectionToken = this.client.disconnect();
+        return this.connectionToken;
     }
 
-    public void subscribe(String topic, int qos) throws MqttException {
-        this.client.subscribe(topic, qos);
+    public void waitForCompletion(IMqttToken token) throws MqttException {
+        System.out.printf(WAIT_FOR_CONNECTION_COMPLETION, this.clientId);
+        token.waitForCompletion();
     }
 
-    public void unsubscribe(String topic) throws MqttException {
-        this.client.unsubscribe(topic);
+    public void waitForCompletion() throws MqttException {
+        this.waitForCompletion(this.connectionToken);
+    }
+
+    public IMqttToken subscribe(String topic, int qos) throws MqttException {
+        return this.client.subscribe(topic, qos);
+    }
+
+    public IMqttToken unsubscribe(String topic) throws MqttException {
+        return this.client.unsubscribe(topic);
     }
 
     public void publish(String topic, byte[] payload, int qos, boolean retained) throws MqttException {
         this.client.publish(topic, payload, qos, retained);
     }
 
-    public void publishWithTimePayload(String topic, int qos, boolean retained) throws MqttException {
+    public String getDefaultTopic() {
+        return this.defaultTopic;
+    }
+
+    public IMqttDeliveryToken publishWithTimePayload(String topic, int qos, boolean retained) throws MqttException {
         Instant currentTime = Instant.now();
         byte[] payload = currentTime.toString().getBytes(StandardCharsets.UTF_8);
-        MqttMessage message = new MqttMessage(payload);
-        message.setId(messageCounter.getAndIncrement());
-        message.setQos(qos);
-        message.setRetained(retained);
-        sendingMessageTimeByMessageId.put(message.getId(), currentTime);
-        this.client.publish(topic, message);
+        IMqttDeliveryToken deliveryToken = this.client.publish(topic, payload, qos, retained);
+        sendingMessageTimeByMessageId.put(deliveryToken.getMessageId(), currentTime);
+        return deliveryToken;
     }
 
     public void publish(String topic, MqttMessage mqttMessage) throws MqttException {
@@ -148,7 +158,7 @@ public class Client {
     }
 
     public int getSuccessfullySentMessagesNumber() {
-        return this.numberOfSuccessfullyDeliveredMessages.get();
+        return this.numberOfSuccessfullyDeliveredMessages.intValue();
     }
 
     public List<Long> getDelays() {
