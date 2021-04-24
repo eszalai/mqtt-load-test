@@ -63,14 +63,14 @@ public class LoadTester {
                 System.out.printf(CLIENT_SUB_ENDED_MSG, Instant.now().toString());
 
                 Instant sendingTime = Instant.now();
-                int schedulerNumber = 9;
+                int schedulerNumber = 10;
                 int initDelayInMillis = 0;
                 ScheduledFuture<?>[] schedulers = new ScheduledFuture<?>[schedulerNumber];
                 for (int i = 0; i < schedulerNumber; i++) {
                         schedulers[i] = executorServiceHandler.scheduleAtFixedRate(publisherClientList,
                                         subscriberClientList, messageNumber, qos, topic, initDelayInMillis,
                                         rateInMillis, awaitTerminationInSecs);
-                        initDelayInMillis += ONE_MINUTE_IN_MILLIS;
+//                        initDelayInMillis += ONE_MINUTE_IN_MILLIS;
                 }
 
                 executorServiceHandler.waitThenCancelSchedulers(schedulers, messageNumber);

@@ -2,6 +2,7 @@ package com.szalaie.loadtest;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -54,6 +55,12 @@ public class ExecutorServiceHandler {
                                     clientIterator = new AtomicInteger(0);
                                 }
                                 T publisher = publisherClientList.get(clientNumber);
+System.out.println("publish:" + messageCounter.get() + " delay: " + initDelayInMillis);
+
+                                BlockingQueue<Runnable> queue = ((ScheduledThreadPoolExecutor) executorService)
+                                        .getQueue();
+                                System.out.println(
+                                        "queue size: " + queue.size() + " capacity: " + queue.remainingCapacity());
 
                                 if (messageCounter.get() < messageNumber) {
                                     if (publisher instanceof Client) {
