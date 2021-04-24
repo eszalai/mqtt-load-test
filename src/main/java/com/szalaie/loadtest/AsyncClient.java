@@ -1,78 +1,25 @@
 package com.szalaie.loadtest;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
-import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
 
-public class AsyncClient {
+public class AsyncClient extends AbstractClient {
 
-    static final String CONNECTION_LOST_MSG = "Connection lost - clientId: %s cause: %s%n";
-    static final String CONNECT_CLIENT_MSG = "Connect client: %s%n";
-    static final String WAIT_FOR_CONNECTION_COMPLETION = "Wait for connection completion: %s%n";
-    static final String DISCONNECT_CLIENT_MSG = "Disconnect client: %s%n";
-    static final String NO_MESSAGE_RECEIVED_MSG = "No message received%n";
-    static final String ERROR_IN_DELIVERY_MSG = "Error in delivery: %s%n";
-    static final String CLIENT = "Client: %S";
-    static final String DEFAULT_TOPIC_STR = "/device/%s/%s";
-    static final int MAX_INFLIGHT = 60000;
-
-    MqttAsyncClient client;
-    IMqttToken connectionToken;
-    String clientId;
-    String defaultTopic;
-    String clientType;
-    MqttConnectOptions options;
-    final AtomicInteger numberOfSuccessfullyDeliveredMessages;
-    Map<Integer, Instant> sendingMessageTimeByMessageId;
-    Map<Integer, Instant> deliveryCompleteTimeByMessageId;
+    private MqttAsyncClient client;
 
     public AsyncClient(String broker, String clientId, String password, String clientType) throws MqttException {
-        this.clientId = clientId;
-        this.clientType = clientType;
-        this.defaultTopic = String.format(DEFAULT_TOPIC_STR, this.clientType, this.clientId);
+        super(clientId, password, clientType);
         client = new MqttAsyncClient(broker, clientId, new MqttDefaultFilePersistence("../tmp"));
 
-        options = new MqttConnectOptions();
-        options.setMqttVersion(MqttConnectOptions.MQTT_VERSION_3_1_1);
-        options.setMaxInflight(MAX_INFLIGHT);
-        options.setConnectionTimeout(0);
-        options.setAutomaticReconnect(true);
-
-        options.setCleanSession(true);
-        options.setUserName(clientId);
-        options.setPassword(password.toCharArray());
-
-        numberOfSuccessfullyDeliveredMessages = new AtomicInteger(0);
-        sendingMessageTimeByMessageId = new HashMap<>();
-        deliveryCompleteTimeByMessageId = new HashMap<>();
-
         setCallbacks();
-    }
-
-    public String getClientId() {
-        return this.clientId;
-    }
-
-    public Map<Integer, Instant> getDeliveryCompleteTimeByMessageId() {
-        return this.deliveryCompleteTimeByMessageId;
-    }
-
-    public Map<Integer, Instant> getSendingMessageTimeByMessageId() {
-        return this.sendingMessageTimeByMessageId;
     }
 
     public void setCallbacks() {
@@ -86,6 +33,8 @@ public class AsyncClient {
 
             @Override
             public void messageArrived(String topic, MqttMessage message) {
+                System.out.printf(MSG_ARRIVED_MSG, clientId, message.getId());
+                numberOfArrivedMessages.getAndIncrement();
             }
 
             // Called when delivery for a message has been completed, and all
@@ -110,23 +59,17 @@ public class AsyncClient {
 
     public IMqttToken connect() throws MqttException {
         System.out.printf(CONNECT_CLIENT_MSG, this.clientId);
-        this.connectionToken = this.client.connect(this.options);
-        return this.connectionToken;
+        return this.client.connect(this.options);
     }
 
     public IMqttToken disconnect() throws MqttException {
         System.out.printf(DISCONNECT_CLIENT_MSG, this.clientId);
-        this.connectionToken = this.client.disconnect();
-        return this.connectionToken;
+        return this.client.disconnect();
     }
 
     public void waitForCompletion(IMqttToken token) throws MqttException {
         System.out.printf(WAIT_FOR_CONNECTION_COMPLETION, this.clientId);
         token.waitForCompletion();
-    }
-
-    public void waitForCompletion() throws MqttException {
-        this.waitForCompletion(this.connectionToken);
     }
 
     public IMqttToken subscribe(String topic, int qos) throws MqttException {
@@ -141,10 +84,6 @@ public class AsyncClient {
         this.client.publish(topic, payload, qos, retained);
     }
 
-    public String getDefaultTopic() {
-        return this.defaultTopic;
-    }
-
     public IMqttDeliveryToken publishWithTimePayload(String topic, int qos, boolean retained) throws MqttException {
         Instant currentTime = Instant.now();
         byte[] payload = currentTime.toString().getBytes(StandardCharsets.UTF_8);
@@ -155,28 +94,5 @@ public class AsyncClient {
 
     public void publish(String topic, MqttMessage mqttMessage) throws MqttException {
         this.client.publish(topic, mqttMessage);
-    }
-
-    public int getSuccessfullySentMessagesNumber() {
-        return this.numberOfSuccessfullyDeliveredMessages.intValue();
-    }
-
-    public List<Long> getDelays() {
-        List<Long> delays = new LinkedList<>();
-
-        for (int messageId : sendingMessageTimeByMessageId.keySet()) {
-            Instant sendingTime = sendingMessageTimeByMessageId.get(messageId);
-            Instant deliveryCompleteTime = deliveryCompleteTimeByMessageId.get(messageId);
-            Duration timeElapsed = Duration.between(sendingTime, deliveryCompleteTime);
-
-            delays.add(timeElapsed.toMillis());
-        }
-
-        return delays;
-    }
-
-    @Override
-    public String toString() {
-        return String.format(CLIENT, this.clientId);
     }
 }

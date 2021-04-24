@@ -87,12 +87,6 @@ public class ClientUtils {
         }
     }
 
-    static void waitForCompletion(List<AsyncClient> clientList) throws MqttException {
-        for (AsyncClient client : clientList) {
-            client.waitForCompletion();
-        }
-    }
-
     static <T> void subscribe(List<T> clientList, String topic, int qos) throws MqttException {
         for (T client : clientList) {
             if (client instanceof Client) {

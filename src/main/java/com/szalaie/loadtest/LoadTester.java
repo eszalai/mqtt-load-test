@@ -22,6 +22,9 @@ public class LoadTester {
         public static final String CLIENT_SUB_ENDED_MSG = "Client subscribing ended at: %s%n";
         public static final String GETTING_RESULTS_MSG = "Getting results%n";
         public static final String END_OF_TESTING_MSG = "End of testing%n";
+        public static final String NO_PUBLISHER_MSG = "No publisher%n";
+        public static final String WAITING_FOR_ALL_MESSAGES_TO_ARRIVE_MSG = "Waiting for all messages to arrive%n";
+        public static final String ALL_MESSAGES_ARRIVED_MSG = "All messages have arrived: %d %s%n";
         static final int ONE_MINUTE_IN_MILLIS = 60000;
 
         ExecutorServiceHandler executorServiceHandler;
@@ -41,6 +44,24 @@ public class LoadTester {
 
                 System.out.printf(CLIENT_CONN_ENDED_MSG, Instant.now().toString());
                 ClientUtils.disconnect(clients);
+        }
+
+        <T> void waitForAllMessagesArrive(List<T> subscriberClientList, int messageNumber) {
+                System.out.printf(WAITING_FOR_ALL_MESSAGES_TO_ARRIVE_MSG);
+                while (true) {
+                        int arrivedMessages = 0;
+                        for (T subscriber : subscriberClientList) {
+                                if (subscriber instanceof Client) {
+                                        arrivedMessages += ((Client) subscriber).getNumberOfArrivedMessages();
+                                } else if (subscriber instanceof AsyncClient) {
+                                        arrivedMessages += ((AsyncClient) subscriber).getNumberOfArrivedMessages();
+                                }
+                        }
+                        if (arrivedMessages >= messageNumber) {
+                                System.out.printf(ALL_MESSAGES_ARRIVED_MSG, arrivedMessages, Instant.now().toString());
+                                break;
+                        }
+                }
         }
 
         void publishMessagesAsynchWithRate(String broker, String clientIdBase, int firstClientIdNumber,
@@ -63,30 +84,35 @@ public class LoadTester {
                 System.out.printf(CLIENT_SUB_ENDED_MSG, Instant.now().toString());
 
                 Instant sendingTime = Instant.now();
-                int schedulerNumber = 9;
-                int initDelayInMillis = 0;
-                ScheduledFuture<?>[] schedulers = new ScheduledFuture<?>[schedulerNumber];
-                for (int i = 0; i < schedulerNumber; i++) {
-                        schedulers[i] = executorServiceHandler.scheduleAtFixedRate(publisherClientList,
-                                        subscriberClientList, messageNumber, qos, topic, initDelayInMillis,
-                                        rateInMillis, awaitTerminationInSecs);
-                        initDelayInMillis += ONE_MINUTE_IN_MILLIS;
+                if (publisherClientList.size() > 0) {
+                        int schedulerNumber = 9;
+                        int initDelayInMillis = 0;
+                        ScheduledFuture<?>[] schedulers = new ScheduledFuture<?>[schedulerNumber];
+                        for (int i = 0; i < schedulerNumber; i++) {
+                                schedulers[i] = executorServiceHandler.scheduleAtFixedRate(publisherClientList,
+                                                messageNumber, qos, topic, initDelayInMillis, rateInMillis,
+                                                awaitTerminationInSecs);
+                                initDelayInMillis += ONE_MINUTE_IN_MILLIS;
+                        }
+
+                        executorServiceHandler.waitThenCancelSchedulers(schedulers, messageNumber);
+                        executorServiceHandler.shutdownExecutorService(awaitTerminationInSecs);
+
+                        Instant deliveryCompleteTime = Instant.now();
+                        Duration timeElapsed = Duration.between(sendingTime, deliveryCompleteTime);
+
+                        System.out.printf(CLIENT_DISCONN_STARTED_MSG, Instant.now().toString());
+                        ClientUtils.disconnect(publisherClientList);
+                        ClientUtils.disconnect(subscriberClientList);
+                        System.out.printf(CLIENT_DISCONN_ENDED_MSG, Instant.now().toString());
+
+                        System.out.printf(GETTING_RESULTS_MSG);
+                        Utils.writeDelayValuesToFile(publisherClientList);
+                        Utils.writeResultsToFile(subscriberClientList, publisherClientList, qos, messageNumber,
+                                        executorServiceHandler.getNumberOfSentMessages(), timeElapsed);
+                } else {
+                        System.out.printf(NO_PUBLISHER_MSG);
+                        waitForAllMessagesArrive(subscriberClientList, messageNumber);
                 }
-
-                executorServiceHandler.waitThenCancelSchedulers(schedulers, messageNumber);
-                executorServiceHandler.shutdownExecutorService(awaitTerminationInSecs);
-
-                Instant deliveryCompleteTime = Instant.now();
-                Duration timeElapsed = Duration.between(sendingTime, deliveryCompleteTime);
-
-                System.out.printf(CLIENT_DISCONN_STARTED_MSG, Instant.now().toString());
-                ClientUtils.disconnect(publisherClientList);
-                ClientUtils.disconnect(subscriberClientList);
-                System.out.printf(CLIENT_DISCONN_ENDED_MSG, Instant.now().toString());
-
-                System.out.printf(GETTING_RESULTS_MSG);
-                Utils.writeDelayValuesToFile(publisherClientList);
-                Utils.writeResultsToFile(subscriberClientList, publisherClientList, qos, messageNumber,
-                                executorServiceHandler.getNumberOfSentMessages(), timeElapsed);
         }
 }
