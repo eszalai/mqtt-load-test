@@ -3,8 +3,8 @@ package com.szalaie.loadtest;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -30,7 +30,7 @@ public class ExecutorServiceHandler {
     void scheduleCommands(List<Runnable> commandList, int delayBetweenMessagesInMillisec) {
         int delay = 0;
         for (Runnable command : commandList) {
-            ((ScheduledExecutorService) executorService).schedule(command, delay, TimeUnit.MILLISECONDS);
+            ((ScheduledThreadPoolExecutor) executorService).schedule(command, delay, TimeUnit.MILLISECONDS);
             delay += delayBetweenMessagesInMillisec;
             this.messageCounter.getAndIncrement();
         }
@@ -41,7 +41,7 @@ public class ExecutorServiceHandler {
             int awaitTerminationInSecs) {
         long period = delayBetweenMessagesInMillis;
         clientIterator = new AtomicInteger(0);
-        ScheduledFuture<?> publishHandler = ((ScheduledExecutorService) this.executorService)
+        ScheduledFuture<?> publishHandler = ((ScheduledThreadPoolExecutor) this.executorService)
                 .scheduleAtFixedRate(new Runnable() {
                     @Override
                     public void run() {
