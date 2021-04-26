@@ -66,8 +66,8 @@ public class LoadTester {
 
         void publishMessagesAsynchWithRate(String broker, String clientIdBase, int firstClientIdNumber,
                         String clientType, String clientPassword, int publisherClientNumber, int subscriberClientNumber,
-                        int messageNumber, String topic, int qos, int rateInMillis, int awaitTerminationInSecs)
-                        throws MqttException, InterruptedException, IOException {
+                        int messageNumber, String topicToSubscribe, String topicToPublish, int qos, int rateInMillis,
+                        int awaitTerminationInSecs) throws MqttException, InterruptedException, IOException {
 
                 List<AsyncClient> publisherClientList = ClientUtils.createAsyncClients(publisherClientNumber, broker,
                                 clientIdBase, clientType, firstClientIdNumber, clientPassword);
@@ -80,7 +80,7 @@ public class LoadTester {
                 System.out.printf(CLIENT_CONN_ENDED_MSG, Instant.now().toString());
 
                 System.out.printf(CLIENT_SUB_STARTED_MSG, Instant.now().toString());
-                ClientUtils.subscribe(subscriberClientList, topic, qos);
+                ClientUtils.subscribe(subscriberClientList, topicToSubscribe, qos);
                 System.out.printf(CLIENT_SUB_ENDED_MSG, Instant.now().toString());
 
                 Instant sendingTime = Instant.now();
@@ -90,7 +90,7 @@ public class LoadTester {
                         ScheduledFuture<?>[] schedulers = new ScheduledFuture<?>[schedulerNumber];
                         for (int i = 0; i < schedulerNumber; i++) {
                                 schedulers[i] = executorServiceHandler.scheduleAtFixedRate(publisherClientList,
-                                                messageNumber, qos, topic, initDelayInMillis, rateInMillis,
+                                                messageNumber, qos, topicToPublish, initDelayInMillis, rateInMillis,
                                                 awaitTerminationInSecs);
                                 initDelayInMillis += ONE_MINUTE_IN_MILLIS;
                         }

@@ -36,8 +36,9 @@ public class ExecutorServiceHandler {
         }
     }
 
-    <T> ScheduledFuture<?> scheduleAtFixedRate(List<T> publisherClientList, int messageNumber, int qos, String topic,
-            int initDelayInMillis, int delayBetweenMessagesInMillis, int awaitTerminationInSecs) {
+    <T> ScheduledFuture<?> scheduleAtFixedRate(List<T> publisherClientList, int messageNumber, int qos,
+            String topicToPublish, int initDelayInMillis, int delayBetweenMessagesInMillis,
+            int awaitTerminationInSecs) {
         long period = delayBetweenMessagesInMillis;
         clientIterator = new AtomicInteger(0);
         ScheduledFuture<?> publishHandler = ((ScheduledThreadPoolExecutor) this.executorService)
@@ -60,8 +61,14 @@ public class ExecutorServiceHandler {
 
                                 if (messageCounter.get() < messageNumber) {
                                     if (publisher instanceof Client) {
+                                        String topic = topicToPublish.length() == 0
+                                                ? ((Client) publisher).getDefaultTopic()
+                                                : topicToPublish;
                                         ((Client) publisher).publishWithTimePayload(topic, qos, false);
                                     } else if (publisher instanceof AsyncClient) {
+                                        String topic = topicToPublish.length() == 0
+                                                ? ((AsyncClient) publisher).getDefaultTopic()
+                                                : topicToPublish;
                                         ((AsyncClient) publisher).publishWithTimePayload(topic, qos, false);
                                     }
                                     messageCounter.incrementAndGet();
