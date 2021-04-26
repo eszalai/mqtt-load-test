@@ -20,6 +20,7 @@ public class App {
     static final String MESSAGE_QOS_PROP = "message.qos";
     static final String MESSAGE_DELAY_MILLIS_PROP = "message.delay.millis";
     static final String CONNECTION_TERMINATION_SECS_PROP = "connection.termination.secs";
+    static final int CORE_POOL_SIZE = 30;
 
     public static void main(String[] args) {
         String broker;
@@ -56,7 +57,7 @@ public class App {
             delayBetweenMessagesInMillisec = Integer.parseInt(prop.getProperty(MESSAGE_DELAY_MILLIS_PROP));
             connectionTerminationInSecs = Integer.parseInt(prop.getProperty(CONNECTION_TERMINATION_SECS_PROP));
 
-            final ScheduledThreadPoolExecutor executorService = new ScheduledThreadPoolExecutor(messageNumber);
+            final ScheduledThreadPoolExecutor executorService = new ScheduledThreadPoolExecutor(CORE_POOL_SIZE);
             LoadTester loadTester = new LoadTester(executorService);
 
             loadTester.publishMessagesAsynchWithRate(broker, clientIdBase, firstClientIdNumber, clientType,
