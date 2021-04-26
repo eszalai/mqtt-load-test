@@ -81,13 +81,11 @@ public abstract class AbstractClient {
         for (int messageId : sendingMessageTimeByMessageId.keySet()) {
             Instant sendingTime = sendingMessageTimeByMessageId.get(messageId);
             Instant deliveryCompleteTime = deliveryCompleteTimeByMessageId.get(messageId);
-            long timeElapsedInMillis = -1;
             if (deliveryCompleteTime != null) {
                 Duration timeElapsed = Duration.between(sendingTime, deliveryCompleteTime);
-                timeElapsedInMillis = timeElapsed.toMillis();
+                delays.add(timeElapsed.toMillis());
             }
 
-            delays.add(timeElapsedInMillis);
         }
 
         return delays;
