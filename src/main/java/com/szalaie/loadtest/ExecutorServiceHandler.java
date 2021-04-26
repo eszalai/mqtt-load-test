@@ -41,8 +41,8 @@ public class ExecutorServiceHandler {
             int awaitTerminationInSecs) {
         long period = delayBetweenMessagesInMillis;
         clientIterator = new AtomicInteger(0);
-        ScheduledFuture<?> publishHandler = ((ScheduledThreadPoolExecutor) this.executorService)
-                .scheduleAtFixedRate(new Runnable() {
+
+        Runnable runnable = new Runnable() {
                     @Override
                     public void run() {
                         try {
@@ -61,8 +61,7 @@ public class ExecutorServiceHandler {
 
                                 if (messageCounter.get() < messageNumber) {
                                     if (publisher instanceof Client) {
-                                        String topic = topicToPublish.length() == 0
-                                                ? ((Client) publisher).getDefaultTopic()
+                                String topic = topicToPublish.length() == 0 ? ((Client) publisher).getDefaultTopic()
                                                 : topicToPublish;
                                         ((Client) publisher).publishWithTimePayload(topic, qos, false);
                                     } else if (publisher instanceof AsyncClient) {
@@ -78,7 +77,10 @@ public class ExecutorServiceHandler {
                             e.printStackTrace();
                         }
                     }
-                }, initDelayInMillis, period, TimeUnit.MILLISECONDS);
+        };
+
+        ScheduledFuture<?> publishHandler = ((ScheduledThreadPoolExecutor) this.executorService)
+                .scheduleAtFixedRate(runnable, initDelayInMillis, period, TimeUnit.MILLISECONDS);
 
         return publishHandler;
     }
