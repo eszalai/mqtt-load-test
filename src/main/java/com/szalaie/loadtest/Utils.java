@@ -169,10 +169,16 @@ public class Utils {
             for (int messageId : sendingMessageTimeByMessageId.keySet()) {
                 Instant sendingTime = sendingMessageTimeByMessageId.get(messageId);
                 Instant deliveryCompleteTime = deliveryCompleteTimeByMessageId.get(messageId);
-                Duration timeElapsed = Duration.between(sendingTime, deliveryCompleteTime);
+                String deliveryCompleteTimeString = EMPTY_STR;
+                long timeElapsedInMillis = -1;
+                if (deliveryCompleteTime != null) {
+                    Duration timeElapsed = Duration.between(sendingTime, deliveryCompleteTime);
+                    timeElapsedInMillis = timeElapsed.toMillis();
+                    deliveryCompleteTimeString = deliveryCompleteTime.toString();
+                }
 
                 delayValuesPrintWriter.printf(DELAY_VALUES_FILE_LINE_FORMAT, messageId, sendingTime.toString(),
-                        deliveryCompleteTime.toString(), timeElapsed.toMillis());
+                        deliveryCompleteTimeString, timeElapsedInMillis);
             }
 
             delayValuesPrintWriter.close();
