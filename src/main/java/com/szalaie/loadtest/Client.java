@@ -18,7 +18,7 @@ public class Client extends AbstractClient {
 
     public Client(String broker, String clientId, String password, String clientType) throws MqttException {
         super(clientId, password, clientType);
-        client = new MqttClient(broker, clientId, new MemoryPersistence());
+        this.client = new MqttClient(broker, clientId, new MemoryPersistence());
 
         messageCounter = new AtomicInteger(0);
 
