@@ -60,7 +60,7 @@ public class Utils {
     }
 
     public static int getIntegerPropertyValue(Properties prop, String propName) {
-        return prop.getProperty(propName) != null && prop.getProperty(propName).length() > 1
+        return prop.getProperty(propName) != null && prop.getProperty(propName).length() > 0
                 ? Integer.parseInt(prop.getProperty(propName))
                 : 0;
     }
