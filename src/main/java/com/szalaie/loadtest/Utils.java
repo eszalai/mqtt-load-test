@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 public class Utils {
 
@@ -56,6 +57,12 @@ public class Utils {
             }
         });
         return delays;
+    }
+
+    public static int getIntegerPropertyValue(Properties prop, String propName) {
+        return prop.getProperty(propName) != null && prop.getProperty(propName).length() > 1
+                ? Integer.parseInt(prop.getProperty(propName))
+                : 0;
     }
 
     public static double calculateProcessedMessagesPerSecond(int successfullySentMessagesNumber,

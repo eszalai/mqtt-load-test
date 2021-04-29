@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import org.eclipse.paho.client.mqttv3.MqttException;
@@ -26,7 +25,6 @@ public class LoadTester {
     public static final String WAITING_FOR_ALL_MESSAGES_TO_ARRIVE_MSG = "Waiting for all messages to arrive%n";
     public static final String ALL_MESSAGES_ARRIVED_MSG = "All messages have arrived: %d %s%n";
     public static final String ARRIVED_MESSAGES_MSG = "Arrived messages: %d%n";
-    static final int ONE_MINUTE_IN_MILLIS = 60000;
 
     ExecutorServiceHandler executorServiceHandler;
 
@@ -70,8 +68,8 @@ public class LoadTester {
 
     void publishMessagesAsynchWithRate(String broker, String clientIdBase, int firstClientIdNumber, String clientType,
             String clientPassword, int publisherClientNumber, int subscriberClientNumber, int messageNumber,
-            String topicToSubscribe, String topicToPublish, int qos, int rateInMillis, int awaitTerminationInSecs)
-            throws MqttException, InterruptedException, IOException {
+            String topicToSubscribe, String topicToPublish, int qos, int rateInMillis, int awaitTerminationInSecs,
+            int loadIncreasingNumber, int loadIncreasingRate) throws MqttException, InterruptedException, IOException {
 
         List<AsyncClient> publisherClientList = ClientUtils.createAsyncClients(publisherClientNumber, broker,
                 clientIdBase, clientType, firstClientIdNumber, clientPassword);
@@ -89,14 +87,14 @@ public class LoadTester {
 
         if (publisherClientList.size() > 0) {
             executorServiceHandler.setMessageNumber(messageNumber);
-            int schedulerNumber = 9;
+            int schedulerNumber = 1 + loadIncreasingNumber;
             int initDelayInMillis = 0;
             Instant sendingTime = Instant.now();
 
             for (int i = 0; i < schedulerNumber; i++) {
                 executorServiceHandler.scheduleAtFixedRate(publisherClientList, messageNumber, qos, topicToPublish,
                         initDelayInMillis, rateInMillis, awaitTerminationInSecs);
-                initDelayInMillis += ONE_MINUTE_IN_MILLIS;
+                initDelayInMillis += loadIncreasingRate;
             }
 
             executorServiceHandler.waitingForAllMessagesToBeSent();

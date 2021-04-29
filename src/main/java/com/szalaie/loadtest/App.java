@@ -20,6 +20,8 @@ public class App {
     static final String MESSAGE_QOS_PROP = "message.qos";
     static final String MESSAGE_DELAY_MILLIS_PROP = "message.delay.millis";
     static final String CONNECTION_TERMINATION_SECS_PROP = "connection.termination.secs";
+    static final String LOAD_INCREASING_NUMBER_PROP = "load.increasing.number";
+    static final String LOAD_INCREASING_RATE_PROP = "load.increasing.rate";
     static final int CORE_POOL_SIZE = 30;
 
     public static void main(String[] args) {
@@ -36,6 +38,8 @@ public class App {
         int qos;
         int delayBetweenMessagesInMillisec;
         int connectionTerminationInSecs;
+        int loadIncreasingNumber;
+        int loadIncreasingRate;
 
         try {
             InputStream input = App.class.getClassLoader().getResourceAsStream(CONF_PROP_FILE);
@@ -47,22 +51,25 @@ public class App {
             clientIdBase = prop.getProperty(CLIENT_ID_BASE_PROP);
             clientPassword = prop.getProperty(CLIENT_PASSWORD_PROP);
             clientType = prop.getProperty(CLIENT_TYPE_PROP);
-            firstClientIdNumber = Integer.parseInt(prop.getProperty(CLIENT_ID_FIRST_PROP));
-            publisherNumber = Integer.parseInt(prop.getProperty(PUBLISHER_NUMBER_PROP));
+            firstClientIdNumber = Utils.getIntegerPropertyValue(prop, CLIENT_ID_FIRST_PROP);
+            publisherNumber = Utils.getIntegerPropertyValue(prop, PUBLISHER_NUMBER_PROP);
             topicToPublish = prop.getProperty(PUBLISHER_TOPIC_PROP);
-            subscriberNumber = Integer.parseInt(prop.getProperty(SUBSCRIBER_NUMBER_PROP));
+            subscriberNumber = Utils.getIntegerPropertyValue(prop, SUBSCRIBER_NUMBER_PROP);
             topicToSubscribe = prop.getProperty(SUBSCRIBER_TOPIC_PROP);
-            messageNumber = Integer.parseInt(prop.getProperty(MESSAGE_NUMBER_PROP));
-            qos = Integer.parseInt(prop.getProperty(MESSAGE_QOS_PROP));
-            delayBetweenMessagesInMillisec = Integer.parseInt(prop.getProperty(MESSAGE_DELAY_MILLIS_PROP));
-            connectionTerminationInSecs = Integer.parseInt(prop.getProperty(CONNECTION_TERMINATION_SECS_PROP));
+            messageNumber = Utils.getIntegerPropertyValue(prop, MESSAGE_NUMBER_PROP);
+            qos = Utils.getIntegerPropertyValue(prop, MESSAGE_QOS_PROP);
+            delayBetweenMessagesInMillisec = Utils.getIntegerPropertyValue(prop, MESSAGE_DELAY_MILLIS_PROP);
+            connectionTerminationInSecs = Utils.getIntegerPropertyValue(prop, CONNECTION_TERMINATION_SECS_PROP);
+            loadIncreasingNumber = Utils.getIntegerPropertyValue(prop, LOAD_INCREASING_NUMBER_PROP);
+            loadIncreasingRate = Utils.getIntegerPropertyValue(prop, LOAD_INCREASING_RATE_PROP);
 
             final ScheduledThreadPoolExecutor executorService = new ScheduledThreadPoolExecutor(CORE_POOL_SIZE);
             LoadTester loadTester = new LoadTester(executorService);
 
             loadTester.publishMessagesAsynchWithRate(broker, clientIdBase, firstClientIdNumber, clientType,
                     clientPassword, publisherNumber, subscriberNumber, messageNumber, topicToSubscribe, topicToPublish,
-                    qos, delayBetweenMessagesInMillisec, connectionTerminationInSecs);
+                    qos, delayBetweenMessagesInMillisec, connectionTerminationInSecs, loadIncreasingNumber,
+                    loadIncreasingRate);
         } catch (Exception e) {
             e.printStackTrace();
         }
