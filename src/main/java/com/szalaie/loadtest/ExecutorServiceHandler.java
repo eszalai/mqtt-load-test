@@ -35,7 +35,7 @@ public class ExecutorServiceHandler {
         return this.messageCounter.get();
     }
 
-    <T> ScheduledFuture<?> scheduleAtFixedRate(List<T> publisherClientList, int qos, String topicToPublish,
+    <T> ScheduledFuture<?> publishMessagesAtFixedRate(List<T> publisherClientList, int qos, String topicToPublish,
             int initDelayInMillis, int delayBetweenMessagesInMillis) {
         clientIterator = new AtomicInteger(0);
 

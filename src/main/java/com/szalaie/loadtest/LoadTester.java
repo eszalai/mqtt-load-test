@@ -73,7 +73,7 @@ public class LoadTester {
             Instant sendingTime = Instant.now();
 
             for (int i = 0; i < schedulerNumber; i++) {
-                executorServiceHandler.scheduleAtFixedRate(publisherClientList, params.getQos(),
+                executorServiceHandler.publishMessagesAtFixedRate(publisherClientList, params.getQos(),
                         params.getTopicToPublish(), initDelayInMillis, params.getDelayBetweenMessagesInMillisec());
                 initDelayInMillis += params.getLoadIncreasingRate();
             }
