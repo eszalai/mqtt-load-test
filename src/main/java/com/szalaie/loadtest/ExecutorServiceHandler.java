@@ -7,22 +7,19 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ExecutorServiceHandler {
 
-    final static String SHUT_DOWN_EXECUTOR_SERVICE_MSG = "Shutting down ExecutorService %s%n";
-    final static String SHUT_DOWN_NOW_EXECUTOR_SERVICE_MSG = "Shut down now ExecutorService %s%n";
-    final static String WAITING_TO_TERMINATE_EXECUTOR_SERVICE_MSG = "Waiting %d seconds to terminate\n";
-    final static String CANCELLING_SCHEDULER_MSG = "Cancelling scheduler";
-    final static String WAITING_TASKS_TO_COMPLETE = "Waiting for tasks to complete%n";
-    final static String WAITING_TASKS_TO_COMPLETE_ENDED = "Waiting for tasks to complete ended%n";
+    private final static String SHUT_DOWN_EXECUTOR_SERVICE_MSG = "Shutting down ExecutorService %s%n";
+    private final static String SHUT_DOWN_NOW_EXECUTOR_SERVICE_MSG = "Shut down now ExecutorService %s%n";
+    private final static String WAITING_TO_TERMINATE_EXECUTOR_SERVICE_MSG = "Waiting %d seconds to terminate\n";
+    private final static String WAITING_TASKS_TO_COMPLETE = "Waiting for tasks to complete%n";
+    private final static String WAITING_TASKS_TO_COMPLETE_ENDED = "Waiting for tasks to complete ended%n";
     private ExecutorService executorService;
     private AtomicInteger messageCounter;
     private AtomicInteger clientIterator;
-    AtomicBoolean executorServiceIsRunning;
-    CountDownLatch latch;
+    private CountDownLatch latch;
 
     public ExecutorServiceHandler(ExecutorService executorService) {
         this.executorService = executorService;
@@ -38,21 +35,9 @@ public class ExecutorServiceHandler {
         return this.messageCounter.get();
     }
 
-    void scheduleCommands(List<Runnable> commandList, int delayBetweenMessagesInMillisec) {
-        int delay = 0;
-        for (Runnable command : commandList) {
-            ((ScheduledThreadPoolExecutor) executorService).schedule(command, delay, TimeUnit.MILLISECONDS);
-            delay += delayBetweenMessagesInMillisec;
-            this.messageCounter.getAndIncrement();
-        }
-    }
-
-    <T> ScheduledFuture<?> scheduleAtFixedRate(List<T> publisherClientList, int messageNumber, int qos,
-            String topicToPublish, int initDelayInMillis, int delayBetweenMessagesInMillis,
-            int awaitTerminationInSecs) {
-        long period = delayBetweenMessagesInMillis;
+    <T> ScheduledFuture<?> scheduleAtFixedRate(List<T> publisherClientList, int qos, String topicToPublish,
+            int initDelayInMillis, int delayBetweenMessagesInMillis) {
         clientIterator = new AtomicInteger(0);
-        executorServiceIsRunning = new AtomicBoolean(true);
 
         Runnable runnable = new Runnable() {
             @Override
@@ -89,7 +74,7 @@ public class ExecutorServiceHandler {
         };
 
         ScheduledFuture<?> publishHandler = ((ScheduledThreadPoolExecutor) this.executorService)
-                .scheduleAtFixedRate(runnable, initDelayInMillis, period, TimeUnit.MILLISECONDS);
+                .scheduleAtFixedRate(runnable, initDelayInMillis, delayBetweenMessagesInMillis, TimeUnit.MILLISECONDS);
 
         return publishHandler;
     }
@@ -100,7 +85,7 @@ public class ExecutorServiceHandler {
         System.out.printf(WAITING_TASKS_TO_COMPLETE_ENDED);
     }
 
-    Instant shutdownExecutorService(int awaitTerminationInSecs) throws InterruptedException {
+    void shutdownExecutorService(int awaitTerminationInSecs) throws InterruptedException {
         System.out.printf(WAITING_TO_TERMINATE_EXECUTOR_SERVICE_MSG, awaitTerminationInSecs);
         executorService.awaitTermination(awaitTerminationInSecs, TimeUnit.SECONDS);
 
@@ -108,7 +93,5 @@ public class ExecutorServiceHandler {
         executorService.shutdown();
         System.out.printf(SHUT_DOWN_NOW_EXECUTOR_SERVICE_MSG, Instant.now());
         executorService.shutdownNow();
-
-        return Instant.now();
     }
 }

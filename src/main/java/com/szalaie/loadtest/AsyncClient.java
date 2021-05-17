@@ -22,13 +22,13 @@ public class AsyncClient extends AbstractClient {
         setCallbacks();
     }
 
-    public void setCallbacks() {
+    void setCallbacks() {
         this.client.setCallback(new MqttCallback() {
 
             // Called when the client lost the connection to the broker
             @Override
             public void connectionLost(Throwable cause) {
-                System.out.printf(CONNECTION_LOST_MSG, clientId, cause);
+                System.out.printf(CONNECTION_LOST_MSG, getClientId(), cause);
             }
 
             @Override
@@ -58,17 +58,17 @@ public class AsyncClient extends AbstractClient {
     }
 
     public IMqttToken connect() throws MqttException {
-        System.out.printf(CONNECT_CLIENT_MSG, this.clientId);
-        return this.client.connect(this.options);
+        System.out.printf(CONNECT_CLIENT_MSG, this.getClientId());
+        return this.client.connect(this.getOptions());
     }
 
     public IMqttToken disconnect() throws MqttException {
-        System.out.printf(DISCONNECT_CLIENT_MSG, this.clientId);
+        System.out.printf(DISCONNECT_CLIENT_MSG, this.getClientId());
         return this.client.disconnect();
     }
 
     public void waitForCompletion(IMqttToken token) throws MqttException {
-        System.out.printf(WAIT_FOR_CONNECTION_COMPLETION, this.clientId);
+        System.out.printf(WAIT_FOR_CONNECTION_COMPLETION, this.getClientId());
         token.waitForCompletion();
     }
 
@@ -90,9 +90,5 @@ public class AsyncClient extends AbstractClient {
         IMqttDeliveryToken deliveryToken = this.client.publish(topic, payload, qos, retained);
         sendingMessageTimeByMessageId.put(deliveryToken.getMessageId(), currentTime);
         return deliveryToken;
-    }
-
-    public void publish(String topic, MqttMessage mqttMessage) throws MqttException {
-        this.client.publish(topic, mqttMessage);
     }
 }

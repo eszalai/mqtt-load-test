@@ -1,6 +1,8 @@
 package com.szalaie.loadtest;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
@@ -24,52 +26,42 @@ public class App {
     static final String LOAD_INCREASING_RATE_PROP = "load.increasing.rate";
     static final int CORE_POOL_SIZE = 30;
 
+    private static LoadTesterParams readProperties() throws IOException {
+        InputStream input = App.class.getClassLoader().getResourceAsStream(CONF_PROP_FILE);
+        Properties prop = new Properties();
+        LoadTesterParams loadTesterParams = new LoadTesterParams();
+
+        prop.load(Objects.requireNonNull(input));
+
+        loadTesterParams.setBrokerUrl(prop.getProperty(BROKER_URL_PROP));
+        loadTesterParams.setClientIdBase(prop.getProperty(CLIENT_ID_BASE_PROP));
+        loadTesterParams.setClientPassword(prop.getProperty(CLIENT_PASSWORD_PROP));
+        loadTesterParams.setClientType(prop.getProperty(CLIENT_TYPE_PROP));
+        loadTesterParams.setFirstClientIdNumber(Utils.getIntegerPropertyValue(prop, CLIENT_ID_FIRST_PROP));
+        loadTesterParams.setPublisherNumber(Utils.getIntegerPropertyValue(prop, PUBLISHER_NUMBER_PROP));
+        loadTesterParams.setTopicToPublish(prop.getProperty(PUBLISHER_TOPIC_PROP));
+        loadTesterParams.setSubscriberNumber(Utils.getIntegerPropertyValue(prop, SUBSCRIBER_NUMBER_PROP));
+        loadTesterParams.setTopicToSubscribe(prop.getProperty(SUBSCRIBER_TOPIC_PROP));
+        loadTesterParams.setMessageNumber(Utils.getIntegerPropertyValue(prop, MESSAGE_NUMBER_PROP));
+        loadTesterParams.setQos(Utils.getIntegerPropertyValue(prop, MESSAGE_QOS_PROP));
+        loadTesterParams
+                .setDelayBetweenMessagesInMillisec(Utils.getIntegerPropertyValue(prop, MESSAGE_DELAY_MILLIS_PROP));
+        loadTesterParams
+                .setConnectionTerminationInSecs(Utils.getIntegerPropertyValue(prop, CONNECTION_TERMINATION_SECS_PROP));
+        loadTesterParams.setLoadIncreasingNumber(Utils.getIntegerPropertyValue(prop, LOAD_INCREASING_NUMBER_PROP));
+        loadTesterParams.setLoadIncreasingRate(Utils.getIntegerPropertyValue(prop, LOAD_INCREASING_RATE_PROP));
+
+        return loadTesterParams;
+    }
+
     public static void main(String[] args) {
-        String broker;
-        String clientIdBase;
-        String clientPassword;
-        String clientType;
-        int firstClientIdNumber;
-        int publisherNumber;
-        String topicToPublish;
-        int subscriberNumber;
-        String topicToSubscribe;
-        int messageNumber;
-        int qos;
-        int delayBetweenMessagesInMillisec;
-        int connectionTerminationInSecs;
-        int loadIncreasingNumber;
-        int loadIncreasingRate;
-
         try {
-            InputStream input = App.class.getClassLoader().getResourceAsStream(CONF_PROP_FILE);
-            Properties prop = new Properties();
-
-            prop.load(input);
-
-            broker = prop.getProperty(BROKER_URL_PROP);
-            clientIdBase = prop.getProperty(CLIENT_ID_BASE_PROP);
-            clientPassword = prop.getProperty(CLIENT_PASSWORD_PROP);
-            clientType = prop.getProperty(CLIENT_TYPE_PROP);
-            firstClientIdNumber = Utils.getIntegerPropertyValue(prop, CLIENT_ID_FIRST_PROP);
-            publisherNumber = Utils.getIntegerPropertyValue(prop, PUBLISHER_NUMBER_PROP);
-            topicToPublish = prop.getProperty(PUBLISHER_TOPIC_PROP);
-            subscriberNumber = Utils.getIntegerPropertyValue(prop, SUBSCRIBER_NUMBER_PROP);
-            topicToSubscribe = prop.getProperty(SUBSCRIBER_TOPIC_PROP);
-            messageNumber = Utils.getIntegerPropertyValue(prop, MESSAGE_NUMBER_PROP);
-            qos = Utils.getIntegerPropertyValue(prop, MESSAGE_QOS_PROP);
-            delayBetweenMessagesInMillisec = Utils.getIntegerPropertyValue(prop, MESSAGE_DELAY_MILLIS_PROP);
-            connectionTerminationInSecs = Utils.getIntegerPropertyValue(prop, CONNECTION_TERMINATION_SECS_PROP);
-            loadIncreasingNumber = Utils.getIntegerPropertyValue(prop, LOAD_INCREASING_NUMBER_PROP);
-            loadIncreasingRate = Utils.getIntegerPropertyValue(prop, LOAD_INCREASING_RATE_PROP);
+            LoadTesterParams loadTesterParams = readProperties();
 
             final ScheduledThreadPoolExecutor executorService = new ScheduledThreadPoolExecutor(CORE_POOL_SIZE);
             LoadTester loadTester = new LoadTester(executorService);
 
-            loadTester.publishMessagesAsynchWithRate(broker, clientIdBase, firstClientIdNumber, clientType,
-                    clientPassword, publisherNumber, subscriberNumber, messageNumber, topicToSubscribe, topicToPublish,
-                    qos, delayBetweenMessagesInMillisec, connectionTerminationInSecs, loadIncreasingNumber,
-                    loadIncreasingRate);
+            loadTester.runTest(loadTesterParams);
         } catch (Exception e) {
             e.printStackTrace();
         }

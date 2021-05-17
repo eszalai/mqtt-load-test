@@ -10,21 +10,17 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 
 public class LoadTester {
 
-    public static final String CLIENT_CONN_TESTING_MSG = "Client connection testing%n";
-    public static final String CLIENT_CONN_TESTING_START_MSG = "Client connection testing START: %s%n";
-    public static final String CLIENT_CONN_TESTING_END_MSG = "Client connection testing END: %s%n";
-    public static final String CLIENT_CONN_STARTED_MSG = "Client connection started at: %s%n";
-    public static final String CLIENT_CONN_ENDED_MSG = "Client connection ended at: %s%n";
-    public static final String CLIENT_DISCONN_STARTED_MSG = "Client disconnection started at: %s%n";
-    public static final String CLIENT_DISCONN_ENDED_MSG = "Client disconnection ended at: %s%n";
-    public static final String CLIENT_SUB_STARTED_MSG = "Client subscribing started at: %s%n";
-    public static final String CLIENT_SUB_ENDED_MSG = "Client subscribing ended at: %s%n";
-    public static final String GETTING_RESULTS_MSG = "Getting results%n";
-    public static final String END_OF_TESTING_MSG = "End of testing%n";
-    public static final String NO_PUBLISHER_MSG = "No publisher%n";
-    public static final String WAITING_FOR_ALL_MESSAGES_TO_ARRIVE_MSG = "Waiting for all messages to arrive%n";
-    public static final String ALL_MESSAGES_ARRIVED_MSG = "All messages have arrived: %d %s%n";
-    public static final String ARRIVED_MESSAGES_MSG = "Arrived messages: %d%n";
+    private static final String CLIENT_CONN_STARTED_MSG = "Client connection started at: %s%n";
+    private static final String CLIENT_CONN_ENDED_MSG = "Client connection ended at: %s%n";
+    private static final String CLIENT_DISCONN_STARTED_MSG = "Client disconnection started at: %s%n";
+    private static final String CLIENT_DISCONN_ENDED_MSG = "Client disconnection ended at: %s%n";
+    private static final String CLIENT_SUB_STARTED_MSG = "Client subscribing started at: %s%n";
+    private static final String CLIENT_SUB_ENDED_MSG = "Client subscribing ended at: %s%n";
+    private static final String GETTING_RESULTS_MSG = "Getting results%n";
+    private static final String NO_PUBLISHER_MSG = "No publisher%n";
+    private static final String WAITING_FOR_ALL_MESSAGES_TO_ARRIVE_MSG = "Waiting for all messages to arrive%n";
+    private static final String ALL_MESSAGES_ARRIVED_MSG = "All messages have arrived: %d %s%n";
+    private static final String ARRIVED_MESSAGES_MSG = "Arrived messages: %d%n";
 
     ExecutorServiceHandler executorServiceHandler;
 
@@ -32,20 +28,7 @@ public class LoadTester {
         executorServiceHandler = new ExecutorServiceHandler(executorService);
     }
 
-    void clientConnectionTesting(String broker, String clientIdBase, int firstClientIdNumber, String clientType,
-            String clientPassword, int clientNumber) throws MqttException {
-        System.out.printf(CLIENT_CONN_TESTING_MSG);
-        List<Client> clients = ClientUtils.createClients(clientNumber, broker, clientIdBase, clientType,
-                firstClientIdNumber, clientPassword);
-
-        System.out.printf(CLIENT_CONN_STARTED_MSG, Instant.now().toString());
-        ClientUtils.connect(clients);
-
-        System.out.printf(CLIENT_CONN_ENDED_MSG, Instant.now().toString());
-        ClientUtils.disconnect(clients);
-    }
-
-    <T> void waitingForAllMessagesToArrive(List<T> subscriberClientList, int messageNumber)
+    private <T> void waitingForAllMessagesToArrive(List<T> subscriberClientList, int messageNumber)
             throws InterruptedException {
         System.out.printf(WAITING_FOR_ALL_MESSAGES_TO_ARRIVE_MSG);
         while (true) {
@@ -66,15 +49,13 @@ public class LoadTester {
         }
     }
 
-    void publishMessagesAsynchWithRate(String broker, String clientIdBase, int firstClientIdNumber, String clientType,
-            String clientPassword, int publisherClientNumber, int subscriberClientNumber, int messageNumber,
-            String topicToSubscribe, String topicToPublish, int qos, int rateInMillis, int awaitTerminationInSecs,
-            int loadIncreasingNumber, int loadIncreasingRate) throws MqttException, InterruptedException, IOException {
-
-        List<AsyncClient> publisherClientList = ClientUtils.createAsyncClients(publisherClientNumber, broker,
-                clientIdBase, clientType, firstClientIdNumber, clientPassword);
-        List<AsyncClient> subscriberClientList = ClientUtils.createAsyncClients(subscriberClientNumber, broker,
-                clientIdBase, clientType, publisherClientNumber + firstClientIdNumber, clientPassword);
+    void runTest(LoadTesterParams params) throws MqttException, InterruptedException, IOException {
+        List<AsyncClient> publisherClientList = ClientUtils.createAsyncClients(params.getPublisherNumber(),
+                params.getBrokerUrl(), params.getClientIdBase(), params.getClientType(),
+                params.getFirstClientIdNumber(), params.getClientPassword());
+        List<AsyncClient> subscriberClientList = ClientUtils.createAsyncClients(params.getSubscriberNumber(),
+                params.getBrokerUrl(), params.getClientIdBase(), params.getClientType(),
+                params.getPublisherNumber() + params.getFirstClientIdNumber(), params.getClientPassword());
 
         System.out.printf(CLIENT_CONN_STARTED_MSG, Instant.now().toString());
         ClientUtils.connect(subscriberClientList);
@@ -82,23 +63,23 @@ public class LoadTester {
         System.out.printf(CLIENT_CONN_ENDED_MSG, Instant.now().toString());
 
         System.out.printf(CLIENT_SUB_STARTED_MSG, Instant.now().toString());
-        ClientUtils.subscribe(subscriberClientList, topicToSubscribe, qos);
+        ClientUtils.subscribe(subscriberClientList, params.getTopicToSubscribe(), params.getQos());
         System.out.printf(CLIENT_SUB_ENDED_MSG, Instant.now().toString());
 
         if (publisherClientList.size() > 0) {
-            executorServiceHandler.setMessageNumber(messageNumber);
-            int schedulerNumber = 1 + loadIncreasingNumber;
+            executorServiceHandler.setMessageNumber(params.getMessageNumber());
+            int schedulerNumber = 1 + params.getLoadIncreasingNumber();
             int initDelayInMillis = 0;
             Instant sendingTime = Instant.now();
 
             for (int i = 0; i < schedulerNumber; i++) {
-                executorServiceHandler.scheduleAtFixedRate(publisherClientList, messageNumber, qos, topicToPublish,
-                        initDelayInMillis, rateInMillis, awaitTerminationInSecs);
-                initDelayInMillis += loadIncreasingRate;
+                executorServiceHandler.scheduleAtFixedRate(publisherClientList, params.getQos(),
+                        params.getTopicToPublish(), initDelayInMillis, params.getDelayBetweenMessagesInMillisec());
+                initDelayInMillis += params.getLoadIncreasingRate();
             }
 
             executorServiceHandler.waitingForAllMessagesToBeSent();
-            executorServiceHandler.shutdownExecutorService(awaitTerminationInSecs);
+            executorServiceHandler.shutdownExecutorService(params.getConnectionTerminationInSecs());
 
             Instant deliveryCompleteTime = Instant.now();
             Duration timeElapsed = Duration.between(sendingTime, deliveryCompleteTime);
@@ -110,11 +91,11 @@ public class LoadTester {
 
             System.out.printf(GETTING_RESULTS_MSG);
             Utils.writeDelayValuesToFile(publisherClientList);
-            Utils.writeResultsToFile(subscriberClientList, publisherClientList, qos, messageNumber,
-                    executorServiceHandler.getNumberOfSentMessages(), timeElapsed);
+            Utils.writeResultsToFile(subscriberClientList, publisherClientList, params.getQos(),
+                    params.getMessageNumber(), executorServiceHandler.getNumberOfSentMessages(), timeElapsed);
         } else {
             System.out.printf(NO_PUBLISHER_MSG);
-            waitingForAllMessagesToArrive(subscriberClientList, messageNumber);
+            waitingForAllMessagesToArrive(subscriberClientList, params.getMessageNumber());
         }
     }
 }

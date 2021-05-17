@@ -2,6 +2,7 @@ package com.szalaie.loadtest;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -31,12 +32,12 @@ public class Client extends AbstractClient {
             // Called when the client lost the connection to the broker
             @Override
             public void connectionLost(Throwable cause) {
-                System.out.printf(CONNECTION_LOST_MSG, clientId, cause);
+                System.out.printf(CONNECTION_LOST_MSG, getClientId(), cause);
             }
 
             @Override
             public void messageArrived(String topic, MqttMessage message) {
-                System.out.printf(MSG_ARRIVED_MSG, clientId, message.getId());
+                System.out.printf(MSG_ARRIVED_MSG, getClientId(), message.getId());
                 numberOfArrivedMessages.getAndIncrement();
             }
 
@@ -51,7 +52,7 @@ public class Client extends AbstractClient {
             @Override
             public void deliveryComplete(IMqttDeliveryToken token) {
                 if (token.getException() != null) {
-                    System.out.printf(ERROR_IN_DELIVERY_MSG, token.getException().getStackTrace().toString());
+                    System.out.printf(ERROR_IN_DELIVERY_MSG, Arrays.toString(token.getException().getStackTrace()));
                 } else {
                     numberOfSuccessfullyDeliveredMessages.getAndIncrement();
                     deliveryCompleteTimeByMessageId.put(token.getMessageId(), Instant.now());
@@ -61,12 +62,12 @@ public class Client extends AbstractClient {
     }
 
     public void connect() throws MqttException {
-        System.out.printf(CONNECT_CLIENT_MSG, this.clientId);
-        this.client.connect(this.options);
+        System.out.printf(CONNECT_CLIENT_MSG, this.getClientId());
+        this.client.connect(this.getOptions());
     }
 
     public void disconnect() throws MqttException {
-        System.out.printf(DISCONNECT_CLIENT_MSG, this.clientId);
+        System.out.printf(DISCONNECT_CLIENT_MSG, this.getClientId());
         this.client.disconnect();
     }
 

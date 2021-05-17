@@ -17,16 +17,15 @@ public abstract class AbstractClient {
     static final String MSG_ARRIVED_MSG = "Message arrived: clientId: %s, messageId: %s%n";
     static final String WAIT_FOR_CONNECTION_COMPLETION = "Wait for connection completion: %s%n";
     static final String DISCONNECT_CLIENT_MSG = "Disconnect client: %s%n";
-    static final String NO_MESSAGE_RECEIVED_MSG = "No message received%n";
     static final String ERROR_IN_DELIVERY_MSG = "Error in delivery: %s%n";
     static final String CLIENT = "Client: %S";
     static final String DEFAULT_TOPIC_STR = "/device/%s/%s";
     static final int MAX_INFLIGHT = 60000;
 
-    String clientId;
-    String defaultTopic;
-    String clientType;
-    MqttConnectOptions options;
+    private String clientId;
+    private String defaultTopic;
+    private String clientType;
+    private MqttConnectOptions options;
     final AtomicInteger numberOfSuccessfullyDeliveredMessages;
     final AtomicInteger numberOfArrivedMessages;
     Map<Integer, Instant> sendingMessageTimeByMessageId;
@@ -53,6 +52,10 @@ public abstract class AbstractClient {
 
     public String getClientId() {
         return this.clientId;
+    }
+
+    public MqttConnectOptions getOptions() {
+        return this.options;
     }
 
     public String getDefaultTopic() {

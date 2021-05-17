@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZonedDateTime;
@@ -17,35 +16,24 @@ import java.util.Properties;
 
 public class Utils {
 
-    final static String EMPTY_STR = "";
-    final static String DELAY_VALUES_FILE_PATH = "results%Sdelays%S%S-%S.csv";
-    final static String RESULTS_FILE_PATH = "results%Sresults%S%S.txt";
-    final static String QOS_STR = "QoS: %d\n";
-    final static String PUBLISHER_NUMBER_STR = "Number of publishers: %d\n";
-    final static String SUBSCRIBER_NUMBER_STR = "Number of subscribers: %d\n";
-    final static String MESSAGE_NUMBER_STR = "Number of messages: %d \n";
-    final static String SENT_MESSAGE_NUMBER_STR = "Number of sent messages: %d \n";
-    final static String SUCCESSFULLY_SENT_MESSAGE_NUMBER_STR = "Number of successfully sent messages: %d\n";
-    final static String MESSAGE_SENDING_DURATION_STR = "Message sending duration: %d seconds%n";
-    final static String RATE_OF_SUCCESSFULLY_PROC_MESSAGES_STR = "Rate of successfully processed PUBLISH messages: %.3f%n";
-    final static String MESSAGE_PROC_PER_SEC_STR = "Number of PUBLISH messages processed per second: %.3f%n";
-    final static String AVERAGE_PROC_TIME_STR = "Average PUBLISH processing time in millis: %.3f%n";
-    final static String MIN_PROC_TIME_STR = "Min PUBLISH processing time in millis: %d%n";
-    final static String MAX_PROC_TIME_STR = "Max PUBLISH processing time in millis: %d%n";
-    final static String DELAY_VALUES_FILE_HEADER_STR = "messageId,sendingTime,deliveryTime,durationBetweenInMillis\n";
-    final static String DELAY_VALUES_FILE_LINE_FORMAT = "%S,%S,%S,%d\n";
-    final static String DATE_TIME_FORMAT = "yyy-MM-dd_HH-mm-ss";
-
-    public static long calculateLatency(Instant receivingTime, String sendingTime) {
-        Instant sendingTimeInstant = Instant.parse(sendingTime);
-        Duration timeElapsed = Duration.between(sendingTimeInstant, receivingTime);
-        return timeElapsed.toNanos();
-    }
-
-    public static long calculateLatency(Instant receivingTime, byte[] sendingTime) {
-        String messageSendingTime = new String(sendingTime, StandardCharsets.UTF_8);
-        return calculateLatency(receivingTime, messageSendingTime);
-    }
+    private final static String EMPTY_STR = "";
+    private final static String DELAY_VALUES_FILE_PATH = "results%Sdelays%S%S-%S.csv";
+    private final static String RESULTS_FILE_PATH = "results%Sresults%S%S.txt";
+    private final static String QOS_STR = "QoS: %d\n";
+    private final static String PUBLISHER_NUMBER_STR = "Number of publishers: %d\n";
+    private final static String SUBSCRIBER_NUMBER_STR = "Number of subscribers: %d\n";
+    private final static String MESSAGE_NUMBER_STR = "Number of messages: %d \n";
+    private final static String SENT_MESSAGE_NUMBER_STR = "Number of sent messages: %d \n";
+    private final static String SUCCESSFULLY_SENT_MESSAGE_NUMBER_STR = "Number of successfully sent messages: %d\n";
+    private final static String MESSAGE_SENDING_DURATION_STR = "Message sending duration: %d seconds%n";
+    private final static String RATE_OF_SUCCESSFULLY_PROC_MESSAGES_STR = "Rate of successfully processed PUBLISH messages: %.3f%n";
+    private final static String MESSAGE_PROC_PER_SEC_STR = "Number of PUBLISH messages processed per second: %.3f%n";
+    private final static String AVERAGE_PROC_TIME_STR = "Average PUBLISH processing time in millis: %.3f%n";
+    private final static String MIN_PROC_TIME_STR = "Min PUBLISH processing time in millis: %d%n";
+    private final static String MAX_PROC_TIME_STR = "Max PUBLISH processing time in millis: %d%n";
+    private final static String DELAY_VALUES_FILE_HEADER_STR = "messageId,sendingTime,deliveryTime,durationBetweenInMillis\n";
+    private final static String DELAY_VALUES_FILE_LINE_FORMAT = "%S,%S,%S,%d\n";
+    private final static String DATE_TIME_FORMAT = "yyy-MM-dd_HH-mm-ss";
 
     public static <T> List<Long> aggregateDelayValues(List<T> publisherClientList) {
         List<Long> delays = new ArrayList<>();
