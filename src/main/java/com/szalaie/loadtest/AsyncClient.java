@@ -33,7 +33,6 @@ public class AsyncClient extends AbstractClient {
 
             @Override
             public void messageArrived(String topic, MqttMessage message) {
-                // System.out.printf(MSG_ARRIVED_MSG, clientId, message.getId());
                 numberOfArrivedMessages.getAndIncrement();
             }
 

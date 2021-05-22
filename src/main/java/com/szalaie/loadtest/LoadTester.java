@@ -5,6 +5,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.eclipse.paho.client.mqttv3.MqttException;
 
@@ -31,8 +33,11 @@ public class LoadTester {
     private <T> void waitingForAllMessagesToArrive(List<T> subscriberClientList, int messageNumber)
             throws InterruptedException {
         System.out.printf(WAITING_FOR_ALL_MESSAGES_TO_ARRIVE_MSG);
+        CountDownLatch latch = new CountDownLatch(1);
+
         while (true) {
-            Thread.sleep(10000);
+            latch.await(60, TimeUnit.SECONDS);
+
             int arrivedMessages = 0;
             for (T subscriber : subscriberClientList) {
                 if (subscriber instanceof Client) {
