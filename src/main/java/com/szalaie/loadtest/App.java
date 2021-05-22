@@ -26,6 +26,8 @@ public class App {
     static final String LOAD_INCREASING_RATE_PROP = "load.increasing.rate";
     static final int CORE_POOL_SIZE = 30;
 
+    static LoadTester loadTester;
+
     private static LoadTesterParams readProperties() throws IOException {
         InputStream input = App.class.getClassLoader().getResourceAsStream(CONF_PROP_FILE);
         Properties prop = new Properties();
@@ -59,7 +61,7 @@ public class App {
             LoadTesterParams loadTesterParams = readProperties();
 
             final ScheduledThreadPoolExecutor executorService = new ScheduledThreadPoolExecutor(CORE_POOL_SIZE);
-            LoadTester loadTester = new LoadTester(executorService);
+            loadTester = new LoadTester(executorService);
 
             loadTester.runTest(loadTesterParams);
         } catch (Exception e) {

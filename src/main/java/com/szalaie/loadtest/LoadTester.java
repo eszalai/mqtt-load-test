@@ -50,30 +50,31 @@ public class LoadTester {
     }
 
     void runTest(LoadTesterParams params) throws MqttException, InterruptedException, IOException {
-        List<AsyncClient> publisherClientList = ClientUtils.createAsyncClients(params.getPublisherNumber(),
+        List<AsyncClient> publishertList = ClientUtils.createAsyncClients(params.getPublisherNumber(),
                 params.getBrokerUrl(), params.getClientIdBase(), params.getClientType(),
                 params.getFirstClientIdNumber(), params.getClientPassword());
-        List<AsyncClient> subscriberClientList = ClientUtils.createAsyncClients(params.getSubscriberNumber(),
+        List<AsyncClient> subscriberList = ClientUtils.createAsyncClients(params.getSubscriberNumber(),
                 params.getBrokerUrl(), params.getClientIdBase(), params.getClientType(),
                 params.getPublisherNumber() + params.getFirstClientIdNumber(), params.getClientPassword());
 
         System.out.printf(CLIENT_CONN_STARTED_MSG, Instant.now().toString());
-        ClientUtils.connect(subscriberClientList);
-        ClientUtils.connect(publisherClientList);
+        ClientUtils.connect(subscriberList);
+        ClientUtils.connect(publishertList);
         System.out.printf(CLIENT_CONN_ENDED_MSG, Instant.now().toString());
 
         System.out.printf(CLIENT_SUB_STARTED_MSG, Instant.now().toString());
-        ClientUtils.subscribe(subscriberClientList, params.getTopicToSubscribe(), params.getQos());
+        ClientUtils.subscribe(subscriberList, params.getTopicToSubscribe(), params.getQos());
         System.out.printf(CLIENT_SUB_ENDED_MSG, Instant.now().toString());
 
-        if (publisherClientList.size() > 0) {
-            executorServiceHandler.setMessageNumber(params.getMessageNumber());
+        this.executorServiceHandler.setMessageNumber(params.getMessageNumber());
+
+        if (publishertList.size() > 0) {
             int schedulerNumber = 1 + params.getLoadIncreasingNumber();
             int initDelayInMillis = 0;
             Instant sendingTime = Instant.now();
 
             for (int i = 0; i < schedulerNumber; i++) {
-                executorServiceHandler.publishMessagesAtFixedRate(publisherClientList, params.getQos(),
+                executorServiceHandler.publishMessagesAtFixedRate(publishertList, params.getQos(),
                         params.getTopicToPublish(), initDelayInMillis, params.getDelayBetweenMessagesInMillisec());
                 initDelayInMillis += params.getLoadIncreasingRate();
             }
@@ -85,17 +86,17 @@ public class LoadTester {
             Duration timeElapsed = Duration.between(sendingTime, deliveryCompleteTime);
 
             System.out.printf(CLIENT_DISCONN_STARTED_MSG, Instant.now().toString());
-            ClientUtils.disconnect(publisherClientList);
-            ClientUtils.disconnect(subscriberClientList);
+            ClientUtils.disconnect(publishertList);
+            ClientUtils.disconnect(subscriberList);
             System.out.printf(CLIENT_DISCONN_ENDED_MSG, Instant.now().toString());
 
             System.out.printf(GETTING_RESULTS_MSG);
-            Utils.writeDelayValuesToFile(publisherClientList);
-            Utils.writeResultsToFile(subscriberClientList, publisherClientList, params.getQos(),
-                    params.getMessageNumber(), executorServiceHandler.getNumberOfSentMessages(), timeElapsed);
+            Utils.writeDelayValuesToFile(publishertList);
+            Utils.writeResultsToFile(subscriberList, publishertList, params.getQos(), params.getMessageNumber(),
+                    executorServiceHandler.getNumberOfSentMessages(), timeElapsed);
         } else {
             System.out.printf(NO_PUBLISHER_MSG);
-            waitingForAllMessagesToArrive(subscriberClientList, params.getMessageNumber());
+            waitingForAllMessagesToArrive(subscriberList, params.getMessageNumber());
         }
     }
 }
